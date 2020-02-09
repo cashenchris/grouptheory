@@ -100,15 +100,18 @@ class FGGroup(object):
        
 
     def cyclic_reduce(self,w):
+        """
+        cyclic_reduce(w) is a cyclically reduced word conjugate (as a free group element) to w.  Use cyclic_reducer if you also want the conjugating element.
+        """
         w1=copy.copy(w.letters)
-        w1=freereduce(w1)
+        w1=freereduce(w1)  # TODO: if this is necessary here, why doesn't it appear in cyclic_reducer?
         while len(w1) > 2 and w1[0]+w1[-1]==0:
             w1=w1[1:-1]
         return self.word(w1)
 
     def cyclic_reducer(self,w):
         """
-        return w0,w1 such that w1 is cyclically reduced and w0**(-1)w1w0=wi.
+        return w0,w1 such that w1 is cyclically reduced and w0**(-1)w1w0=w.  Use cyclic_reduce if you don't care about w0.
         """
         w1=copy.copy(w.letters)
         w0=[]
