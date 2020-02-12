@@ -104,7 +104,6 @@ class FGGroup(object):
         cyclic_reduce(w) is a cyclically reduced word conjugate (as a free group element) to w.  Use cyclic_reducer if you also want the conjugating element.
         """
         w1=copy.copy(w.letters)
-        w1=freereduce(w1)  # TODO: if this is necessary here, why doesn't it appear in cyclic_reducer?
         while len(w1) > 2 and w1[0]+w1[-1]==0:
             w1=w1[1:-1]
         return self.word(w1)
