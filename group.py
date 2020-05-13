@@ -2,7 +2,10 @@ import copy
 import random
 from numpy import log, ceil, sqrt, sign
 import networkx as nx
-     
+
+# Sets up basic classes for groups, words, and homomorphisms.
+# Most of the content here is about handling the undrelying data structure and presenting them in a nice way, not abstract group theory.
+# Intent is for this these to be the common base classes for more specialized situations where we can do interesting group theory, ie permutation groups, matrix groups, free groups, automatic groups,...
  
 class FGGroup(object):
     """
@@ -532,6 +535,7 @@ class Word(object):
         """
         Return first letter (as a number!), and shorten word.
         """
+        # for backwards compatibility
         first = self.letters[0]
         self.letters = self.letters[1:]
         return first
@@ -540,6 +544,7 @@ class Word(object):
         """
         Return word as string.
         """
+        # for backwards compatibility
         key = 'ZYXWVUTSRQPONMLKJIHGFEDCBA abcdefghijklmnopqrstuvwxyz'
         key_offset = 26
         strout = ''
@@ -712,6 +717,8 @@ class Automorphism(Endomorphism):
 class InnerAutomorphism(Automorphism):
     """
     Inner automorphism.
+    
+    Given g returns map x->g^-1 x g
     """
     def __init__(self, domain, gpelement):
         self.gpelement=gpelement
@@ -722,7 +729,7 @@ class InnerAutomorphism(Automorphism):
         return range(1,1+len(self.domain.gens))
         
     def __call__(self,w):
-        return self.codomain.word([-i for i in reversed(gpelement.letters)]+w.letters+gpelement.letters)
+        return self.codomain.word([-i for i in reversed((self.gpelement).letters)]+w.letters+(self.gpelement).letters)
         
     def __mul__(self,other):
         if type(self)==type(other) and self.domain is other.domain:
