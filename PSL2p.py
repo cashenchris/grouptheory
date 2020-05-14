@@ -1,8 +1,8 @@
 import numpy as np
 from numty.quadResidues import legendre
-import pickle
-import sys
 import itertools
+
+# requires package numty
 
 # modular matrix functions
 def modinverse(a,p):

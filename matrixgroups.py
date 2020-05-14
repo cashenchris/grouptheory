@@ -1,5 +1,7 @@
 import numpy as np
 
+# comparison is elementwise within np tolerances
+
 class matrixgroupelement(object):
     """
     Matrices as group elements. 
