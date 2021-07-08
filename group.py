@@ -403,6 +403,24 @@ class Word(object):
         w3()='aaa'
         w3(G)='aaa'
         w3(F)='xyXYxyXYxyXY'
+
+    >>> F=FGGroup(gens=['x','y'], inverses=['X','Y'])
+    >>> w1=Word([1,2,-1,-2],F)
+    >>> w2=Word('xyXY',F)
+    >>> F.word([1,2,-1,-2])
+    [1, 2, -1, -2]
+    >>> F.word('xyXY')
+    [1, 2, -1, -2]
+    >>> w1() 
+    'xyXY'
+    >>> G=FGSubgroup(F, [w1], gens=['a'], inverses=['A'])
+    >>> w3=G.word([1,1,1])
+    >>> w3()
+    'aaa'
+    >>> w3(G)
+    'aaa'
+    >>> w3(F)
+    'xyXYxyXYxyXY'
     """   
     def __init__(self,letters, group):
         self.group=group
@@ -770,3 +788,14 @@ def product(*args):
         return args[0]
     else:
         raise TypeError("Don't know how to take product of 0 things.")
+
+def testfunction():
+    """
+    >>> 1+1
+    2
+    """
+    pass
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
