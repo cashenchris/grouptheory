@@ -5,6 +5,20 @@ import numpy as np
 class matrixgroupelement(object):
     """
     Matrices as group elements. 
+
+    >>> M=matrixgroupelement(np.array([[1,2],[0,1]]))
+    >>> M
+    [[[1 2]],[[0 1]]]
+    >>> M**(-1)
+    [[[ 1. -2.]],[[0. 1.]]]
+    >>> N=matrixgroupelement(np.array([[0,1],[-1,0]]))
+    >>> N
+    [[[0 1]],[[-1  0]]]
+    >>> M*N
+    [[[-2  1]],[[-1  0]]]
+    >>> N==M*M**(-1)*N
+    True
+    
     """
     def __init__(self,M):
         if np.linalg.det(M)==0:
@@ -32,4 +46,12 @@ class matrixgroupelement(object):
     
     def __repr__(self):
         return self.__str__()
-    
+
+
+
+
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
