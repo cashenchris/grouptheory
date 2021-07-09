@@ -22,6 +22,35 @@ class FGGroup(object):
         In the above examples, with inveses supplied and displaystyle=str the commutator word [1,2,-1,-2] would print 'xyXY'.
         With inverses not supplied and displaystyle=list it would print ['x','y','x**(-1)','y**(-1)'].
         Default:  str if gens=[] and numgens <= 26 else list
+
+    >>> G=FGGroup(numgens=3,displaystyle=str)
+    >>> G
+    < a, b, c >
+    >>> G.identity
+    ''
+    >>> a=G.word([1])
+    >>> b=G.word([2])
+    >>> d=G.word([1,2,-1,-2])
+    >>> d()
+    'abAB'
+    >>> g=a*b*a**(2)*b*a**(-2)*b**(-1)*a**(-1)
+    >>> g()
+    'abaabAABA'
+    >>> G.cyclic_reducer(g)
+    ([-1, -1, -2, -1], [2])
+    >>> H=FGGroup(numgens=2,generatorbasename='h',identity='e')
+    >>> H
+    < h_1, h_2 >
+    >>> H.identity
+    'e'
+    >>> h=H.word([1,2,-1,-2])
+    >>> h
+    [1, 2, -1, -2]
+    >>> h()
+    "['h_1', 'h_2', '(h_1)**(-1)', '(h_2)**(-1)']"
+    >>> k=h*h**(-1)
+    >>> k()
+    'e'
     
     """
     # Note at this point we don't do anything with relations, so this is really just the free group on the given generators.
@@ -256,6 +285,37 @@ class FPGroup(FGGroup):
 class FGSubgroup(FGGroup):
     """
     A subgroup defined by an inclusion homomorphism into a supergroup, with optional names for the generators of the subgroup.
+
+    >>> G=FGGroup(numgens=3)
+    >>> a=G.word([1])
+    >>> b=G.word([2])
+    >>> c=G.word([3])
+    >>> H=FGSubgroup(G,[a**2,b*c],gens=['x','y'],inverses=['X','Y'])
+    >>> H
+    < x=aa, y=bc >
+    >>> x=H.word([1])
+    >>> y=H.word([2])
+    >>> x
+    [1]
+    >>> x(G)
+    'aa'
+    >>> K=FGSubgroup(H,[x*y*x**(-1)*y**(-1)],gens=['z'],inverses=['Z'])
+    >>> z=K.word([1])
+    >>> K
+    < z=xyXY >
+    >>> z()
+    'z'
+    >>> z(H)
+    'xyXY'
+    >>> z(G)
+    'aabcAACB'
+    >>> J=FGGroup(numgens=1)
+    >>> H.is_subgroup(G)
+    True
+    >>> K.is_subgroup(G)
+    True
+    >>> J.is_subgroup(G)
+    False
     """
     def __init__(self,supergroup, inclusionlist, **kwargs):
         self.supergroup=supergroup
@@ -665,6 +725,28 @@ class Endomorphism(PDEndo, Homomorphism):
 class Automorphism(Endomorphism):
     """
     Automorphism of a group. Generators not in the generatorimagedict are assumed to be fixed.
+
+    >>> G=FGGroup(numgens=4)
+    >>> a=G.word([1]); b=G.word([2]); c=G.word([3]); d=G.word([4])
+    >>> alpha=Automorphism(G,{1:a*b,2:a,3:c**(-1)})
+    >>> alpha
+    < a, b, c, d > -> < a, b, c, d >:{1: [1, 2], 2: [1], 3: [-3]}
+    >>> alpha(a)()
+    'ab'
+    >>> alpha(d)()
+    'd'
+    >>> alpha(a*b*c*d)
+    [1, 2, 1, -3, 4]
+    >>> (alpha**2)(a)
+    [1, 2, 1]
+    >>> beta=Automorphism(G,{1:b,2:c,3:d,4:a**(-1)})
+    >>> (alpha*beta)(a)
+    [1]
+    >>> (beta*alpha)(a)
+    [2, 3]
+    >>> beta(alpha(a))
+    [2, 3]
+
     """
     # Note, the class doesn't check that the input actually defines an automorphism.
     def __init__(self, domain, generatorimagedict=None):
@@ -770,3 +852,12 @@ def product(*args):
         return args[0]
     else:
         raise TypeError("Don't know how to take product of 0 things.")
+
+
+
+
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
