@@ -569,7 +569,7 @@ class Word(object):
                 inclusionchain=compose(currentgroup.inclusion,inclusionchain)
                 currentgroup=currentgroup.supergroup
             except AttributeError:
-                print str(self)+" is not a recognized word in "+supergroup
+                print(str(self)+ " is not a recognized word in " +supergroup)
         if len(self.letters)==0:
             return supergroup.identity
         else:
@@ -652,7 +652,7 @@ class PDHomo(object):
              self.images=generatorimagedict
 
     def variant_generators(self):
-        return self.images.keys()
+        return list(self.images)
     
     def __repr__(self):
         return str(self.domain)+" -> "+str(self.codomain)+":"+str(self.images)
@@ -683,7 +683,7 @@ class PDHomo(object):
         return self.codomain.word(imagewordletters)
 
     def alpha(self):
-        print str(domain)+" -> "+str(codomain)+":\n"+"\n".join([domain.word([i]).alpha()+" -> "+self(self.domain.word([i])).alpha() for i in self.variant_generators()])
+        print(str(domain)+" -> "+str(codomain)+":\n"+"\n".join([domain.word([i]).alpha()+" -> "+self(self.domain.word([i])).alpha() for i in self.variant_generators()]))
 
 class Homomorphism(PDHomo):
     """

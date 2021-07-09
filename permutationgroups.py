@@ -1,4 +1,4 @@
-from fractions import gcd
+from math import gcd
 import numpy as np
 from frozen_dict import FrozenDict #https://github.com/zelaznik/frozen_dict.git
 import itertools
