@@ -90,8 +90,8 @@ def perm_cc(elements):
     n = len(pool)
     for partlist in deccparts(elements):
         nextperm = ()
-    for subs in partlist:
-        nextperm += negcyc(subs)
+        for subs in partlist:
+            nextperm += negcyc(subs)
         yield nextperm
     
 
@@ -140,8 +140,8 @@ def graphs(r,k):
             for i in range(r):
                 for j in vertices:
                     gr.add_edge(j,perms[i][j],i+1)
-                    if gr.is_connected():
-                        yield gr
+            if gr.is_connected():
+                yield gr
 
 
 
