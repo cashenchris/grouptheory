@@ -11,18 +11,18 @@ class FPGraphOfGroups(nx.MultiDiGraph):
         nx.MultiDiGraph.__init__(self, data, **attr)
 
         self.edgekeys={}  # dictionary that takes name of edge and gives corresponding vertices
-        for edge in self.edges(keys=True):
+        for edge in list(self.edges(keys=True)):
             self.edgekeys[edge[2]]=(edge[0],edge[1])
 
     def __repr__(self):
-        return "vertices:"+str(self.nodes(data=True))+" edges:"+str(self.edges(keys=True, data=True))+" edgekeys:"+repr(self.edgekeys)
+        return "vertices:"+str(list(self.nodes(data=True)))+" edges:"+str(list(self.edges(keys=True, data=True)))+" edgekeys:"+repr(self.edgekeys)
 
     def __str__(self):
-        nontrivialedges=[e for e in self.edges(keys=True,data=True) if e[3]['group'].gens]
+        nontrivialedges=[e for e in list(self.edges(keys=True,data=True)) if e[3]['group'].gens]
         thestring="Graph:\n"
-        thestring+="Vertices: "+str(self.nodes())+"\n"
+        thestring+="Vertices: "+str(list(self.nodes()))+"\n"
         theedges=[]
-        for edge in self.edges(keys=True,data=True):
+        for edge in list(self.edges(keys=True,data=True)):
             if 'label' in edge[3]:
                 if edge[3]['label']:
                     theedges.append("("+str(edge[0])+", "+str(edge[1])+", "+str(edge[2])+", label="+str(edge[3]['label'])+")")
@@ -32,7 +32,7 @@ class FPGraphOfGroups(nx.MultiDiGraph):
                 theedges.append("("+str(edge[0])+", "+str(edge[1])+", "+str(edge[2])+")")
         thestring+="Edges: "+", ".join(theedges)+"\n"
         thestring+="Vertex Groups:\n"
-        thestring+="\n".join([str(v)+": "+str(self.node[v]['group']) for v in self])+"\n"
+        thestring+="\n".join([str(v)+": "+str(self.nodes[v]['group']) for v in self])+"\n"
         thestring+="Nontrivial Edge Maps:\n"
         thestring+="\n".join([str(e[:3])+" origin\n"+str(self[e[0]][e[1]][e[2]]['omap'])+"\n"+str(e[:3])+" terminus\n"+str(self[e[0]][e[1]][e[2]]['tmap']) for e in nontrivialedges])
         return thestring
@@ -75,7 +75,7 @@ class FPGraphOfGroups(nx.MultiDiGraph):
 
     def localgroup(self,vertoredge):
         try: # maybe vertoredge is a vertex
-            return self.node[vertoredge]['group']
+            return self.nodes[vertoredge]['group']
         except (KeyError, TypeError): # otherwise it's an edge tuple
             return self[vertoredge[0]][vertoredge[1]][vertoredge[2]]['group']
 
@@ -94,18 +94,18 @@ class FPGraphOfGroups(nx.MultiDiGraph):
             assert(tmap.variant_generators())
         if u not in self:  # if u is not already in the graph add it with group isomorphic to the edge group
             self.add_vertex(u, edgegroup)
-            vertgroup=self.node[u]['group']
+            vertgroup=self.nodes[u]['group']
             omap=Homomorphism(edgegroup,vertgroup,[vertgroup.word([i]) for i in range(1,1+len(edgegroup.gens))])
         if v not in self:
             self.add_vertex(v, edgegroup)
-            vertgroup=self.node[v]['group']
+            vertgroup=self.nodes[v]['group']
             tmap=Homomorphism(edgegroup,vertgroup,[vertgroup.word([i]) for i in range(1,1+len(edgegroup.gens))])
         if omap is None:
             assert(edgegroup.gens==[])
-            omap=Homomorphism(edgegroup,self.node[u]['group'],[])
+            omap=Homomorphism(edgegroup,self.nodes[u]['group'],[])
         if tmap is None:
             assert(edgegroup.gens==[])
-            tmap=Homomorphism(edgegroup,self.node[v]['group'],[])
+            tmap=Homomorphism(edgegroup,self.nodes[v]['group'],[])
 
         try:
             key=kwargs['key']
@@ -134,7 +134,7 @@ class FPGraphOfGroups(nx.MultiDiGraph):
         return nbs
 
     def remove_vertex(self,vert):
-        for edge in self.edges(vert, keys=True):
+        for edge in list(self.edges(vert, keys=True)):
             del self.edgekeys[edge[2]]
         self.remove_node(vert)
 
@@ -177,7 +177,7 @@ class FPGraphOfGroups(nx.MultiDiGraph):
         # add a copy of newgog to self, with vertex and edgekeys prefixed
         for v in newgog:
             self.add_vertex(v,newgog.localgroup(v))
-        for e in newgog.edges(keys=True, data=True):
+        for e in list(newgog.edges(keys=True, data=True)):
             # if the edge has some other data attached we shoud remember that
             edgedata=dict([(k,e[3][k]) for k in e[3] if k!='tmap' and k!='omap' and k!='group' and k!='key'])
             edgedata['key']=e[2]

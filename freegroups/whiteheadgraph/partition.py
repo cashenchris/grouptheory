@@ -40,9 +40,9 @@ def partition_union(*args):
         """
         connectiongraph=nx.Graph()
         for p in P1.parts:
-            connectiongraph.add_star([(1,e) for e in p])
+            nx.add_star(connectiongraph,[(1,e) for e in p])
         for p in P2.parts:
-            connectiongraph.add_star([(2,e) for e in p])
+            nx.add_star(connectiongraph,[(2,e) for e in p])
         connectiongraph.add_edges_from([((1,e),(2,e)) for e in P1.elements()])
         components=[list(comp) for comp in nx.connected_components(connectiongraph)]
         return Partition([set([comp[i][1] for i in range(len(comp))]) for comp in components])

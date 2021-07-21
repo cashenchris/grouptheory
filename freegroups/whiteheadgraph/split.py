@@ -35,7 +35,7 @@ def is_primitive(F,w,guaranteenonpower=False):
         if p != 1:
             return False
     W=wgraph.WGraph([r],autominimize=True)
-    if len(W.edges())==1:
+    if len(list(W.edges()))==1:
         return True
     else:
         return False
@@ -47,7 +47,7 @@ def is_subbasic(F,wordlist):
     """
     simplifiedwordlist=wgraph.blind_simplify_wordlist(F,wordlist)
     W=wgraph.WGraph(simplifiedwordlist,autominimize=True)
-    return len(simplifiedwordlist)==len(W.edges())
+    return len(simplifiedwordlist)==len(list(W.edges()))
 freegroup.FGFreeGroup.is_subbasic=is_subbasic
 
 def splits_freely_rel(F, wordlist, simplified=False, minimized=False, verbose=False):
@@ -112,17 +112,17 @@ def get_free_splitting_rel(F, originalwordlist, simplified=False, minimized=Fals
         Gamma.add_vertex('v0', freegroup.FGSubgroupOfFree(F,[]))
         for i in range(len(obused)):
             Gamma.add_vertex('v'+str(i+1), freegroup.FGSubgroupOfFree(F,[w for w in obused[i]]))
-            Gamma.add_edge('v0','v'+str(i+1), freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v0']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v'+str(i+1)]['group']))
+            Gamma.add_edge('v0','v'+str(i+1), freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v0']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v'+str(i+1)]['group']))
         for w in obunused:
-            Gamma.add_edge('v0','v0',freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v0']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v0']['group']), label=w() )
+            Gamma.add_edge('v0','v0',freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v0']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v0']['group']), label=w() )
     elif (len(usedpartition.parts)==1):
         Gamma.add_vertex('v1', freegroup.FGSubgroupOfFree(F,[w for w in obused[0]]))
         for w in obunused:
-            Gamma.add_edge('v1','v1',freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v1']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v1']['group']), label=w() )
+            Gamma.add_edge('v1','v1',freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v1']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v1']['group']), label=w() )
     else:
          Gamma.add_vertex('v0', freegroup.FGSubgroupOfFree(F,[]))
          for w in obunused:
-            Gamma.add_edge('v0','v0',freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v0']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.node['v0']['group']), label=w() )
+            Gamma.add_edge('v0','v0',freegroup.FGSubgroupOfFree(F,[]),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v0']['group']),group.Homomorphism(freegroup.FGSubgroupOfFree(F,[]), Gamma.nodes['v0']['group']), label=w() )
     if not withwordmap:
         if printresult:
             print(Gamma)
@@ -273,9 +273,9 @@ def push_forward_partition(W,v0,P0,v1,precomputedcomponents=None):
         components=W.connected_components_minus_two_vertices(v0,v1)
     newgraph=nx.Graph()
     for c in components:
-        newgraph.add_star([(n,'vert') for n in c])
+        nx.add_star(newgraph,[(n,'vert') for n in c])
     for p in P0.parts:
-        newgraph.add_star([(e,'edge0') for e in p])
+        nx.add_star(newgraph,[(e,'edge0') for e in p])
     for i in range(W.valence(v1)):
         if W.opposite_end(W.incident_edges(v1)[i],v1)==v0:
             newgraph.add_edge((i,'edge1'),(W.incident_edges(v0).index(W.incident_edges(v1)[i]),'edge0'))
@@ -329,7 +329,7 @@ def find_universal_splitting_words(F, W, wordlist, DoNotVerifyTwoComponentWords=
     precomputedcomponents=dict() # this will be a dict with key (v0,v1) containing the components of W-{v0,v1}, populated as needed
     whiteheadgraphiscomplete=False
     simplegraph=nx.Graph(W)
-    if len(simplegraph.edges())==rank*(2*rank-1):
+    if len(list(simplegraph.edges()))==rank*(2*rank-1):
         whiteheadgraphiscomplete=True
     del simplegraph
     directions=list(range(-rank,rank+1))
@@ -854,25 +854,25 @@ def get_relative_cyclic_splitting_over(F, W, wordlist, splittingword, nameprefix
             if worbitofcomplement[c] in edgestobe: # if this is the first time we've seen this orbit of component
                 edgestobe.remove(worbitofcomplement[c])
                 # This is the first time we've seen this component. Add the stabilizer of nextaxis to the vertex stabilizer of the quotient.
-                quotientgraph.node[smash(nameprefix,thisedge)]['stabilizer'].add(tuple((g*(w**(minimalaxesincomplementsofw[c][0]))*g**(-1)).letters))
+                quotientgraph.nodes[smash(nameprefix,thisedge)]['stabilizer'].add(tuple((g*(w**(minimalaxesincomplementsofw[c][0]))*g**(-1)).letters))
                 quotientgraph.add_edge(smash(nameprefix,thisedge),smash(nameprefix,w()),smash(nameprefix,worbitofcomplement[c]),label=g*(w**(x)),headstabilizer=set([w**minimalaxesincomplementsofw[worbitofcomplement[c]][0]]), tailstabilizer=set([g*w**minimalaxesincomplementsofw[c][0]*g**(-1)]))
                 for (h,d) in minimalaxesincomplementsofw[worbitofcomplement[c]][1]:
                     minimaladjacentaxes.add((g*w**x*h,d)) # need to do this because so far we only know about the minmimaladjacent axes that are distance at most 1 from axis of w. This adds the group elements we need to get minmial adjacent axes that are distance at most 1 from those.
             else:
                 # we've been here before, so an edge has already been added to the quotientgraph. Just need to add to the stabilizer.
                 h=quotientgraph[smash(nameprefix,thisedge)][smash(nameprefix,w())][smash(nameprefix,worbitofcomplement[c])]['label']
-                quotientgraph.node[smash(nameprefix,thisedge)]['stabilizer'].add(tuple((g*w**x*(h)**(-1)).letters))
+                quotientgraph.nodes[smash(nameprefix,thisedge)]['stabilizer'].add(tuple((g*w**x*(h)**(-1)).letters))
 
     # We've got the quotient graph along with a set of generators for each stabilizers. Make it into a graph of groups.
     # We need to do this because for quotientgraph we built up stabilizers one generator at a time, but for a graph of groups we need to know the whole stabilizer subgroup.
     qgog=gog.FPGraphOfGroups()
-    for v in quotientgraph.nodes():
-        thisstabwl=[F.word(s) for s in quotientgraph.node[v]['stabilizer']]
+    for v in list(quotientgraph.nodes()):
+        thisstabwl=[F.word(s) for s in quotientgraph.nodes[v]['stabilizer']]
         thisstabilizer=freegroup.FGSubgroupOfFreeFrom(F,thisstabwl, generatorbasename=str(v), displaystyle=list)
         qgog.add_vertex(v,vertgroup=thisstabilizer)
-    for e in quotientgraph.edges(keys=True):
-        ogroup=qgog.node[e[0]]['group']
-        tgroup=qgog.node[e[1]]['group']
+    for e in list(quotientgraph.edges(keys=True)):
+        ogroup=qgog.nodes[e[0]]['group']
+        tgroup=qgog.nodes[e[1]]['group']
         originword=F.word(quotientgraph[e[0]][e[1]][e[2]]['tailstabilizer'].pop())
         terminusword=F.word(quotientgraph[e[0]][e[1]][e[2]]['headstabilizer'].pop())
         assert(len(originword))
@@ -989,7 +989,7 @@ def is_RJSJ(F,wlmap,thisgog, verbose=False):
     rigidverts=[]
     circleverts=[]
     degree2verts=[]
-    for vert in thisgog.nodes():
+    for vert in list(thisgog.nodes()):
         if thisgog.localgroup(vert).rank>1:
             iwl=get_induced_multiword(thisgog,vert, wlmap,simplifyandminimize=True)
             if thisgog.localgroup(vert).is_circle(iwl):
@@ -1076,7 +1076,7 @@ def get_RJSJ(F,whiteheadgraphorwordlist,withmap=False, printresult=False, namepr
     for i in range(len(wordmap)):
         wheredidmywordsgo.append((thisvert,wordlist[wordmap[i][0]],wordmap[i][1]))
     universal_split_vertex(rjsj,thisvert,wheredidmywordsgo,MinNumComponents=3,verbose=verbose, cutpairsearchrecursionlimit=cutpairsearchrecursionlimit, maxnumberof2componentcutstoconsider=maxnumberof2componentcutstoconsider) # performs all splittings corresponding to cut points or uncrossed cut pairs with at least 3 components
-    firstroundverts=[n for n in rjsj.nodes()]
+    firstroundverts=[n for n in list(rjsj.nodes())]
     for thisvert in firstroundverts: # now for each higher rank vertex try to split it over uncrossed cut pairs with 2 components
         if rjsj.localgroup(thisvert).rank>1:
             universal_split_vertex(rjsj,thisvert,wheredidmywordsgo,MinNumComponents=2,verbose=verbose, cutpairsearchrecursionlimit=cutpairsearchrecursionlimit, maxnumberof2componentcutstoconsider=maxnumberof2componentcutstoconsider)
@@ -1212,7 +1212,7 @@ def get_max_free_and_cyclic_splitting_rel(F, whiteheadgraphorwordlist, withmap=F
         print("Looking for free splittings.")
     freesplitting,wmap=F.get_free_splitting_rel(wordlist, withwordmap=True, minimized=True, simplified=True, blind=blind)
     wheredidmywordsgo=[(wmap[wordmap[i][0]][0], wmap[wordmap[i][0]][1],wmap[wordmap[i][0]][2]*wordmap[i][1]) for i in range(len(wordmap))]
-    higherrankvertices=[v for v in freesplitting.nodes() if freesplitting.localgroup(v).rank>1]
+    higherrankvertices=[v for v in list(freesplitting.nodes()) if freesplitting.localgroup(v).rank>1]
     if verbose:
         print("Found a free splitting with "+str(len(higherrankvertices))+" higher rank vertices.")
     for thisvert in higherrankvertices: # find cyclic splittings of the vertex groups
@@ -1231,7 +1231,7 @@ def get_max_free_and_cyclic_splitting_rel(F, whiteheadgraphorwordlist, withmap=F
         # To refine the freesplitting we need to know how to attach edges from freesplitting incident to thisvert to thisrjsj.
         # Since the stabilizers of edges in freesplitting are trivial it doesn't matter how we attach the edges.
         # Take any vertex somevertex in thisrjsj and attach all the edges there, with trivial edge maps.
-        somevertex=thisrjsj.nodes()[0]
+        somevertex=list(thisrjsj.nodes())[0]
         edgeupdate=dict()
         outedges=set(freesplitting.out_edges(thisvert,keys=True))
         inedges=set(freesplitting.in_edges(thisvert,keys=True))

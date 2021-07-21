@@ -477,7 +477,7 @@ class FGSubgroupOfFree(FGSubgroup, FGFreeGroup):
             cover.fold(marking, inversemarking, verbose=verbose)
             self.graph = cover
             self.inversemarking=inversemarking
-            self.rank=1+len(self.graph.edges())//2 - len(self.graph.nodes())
+            self.rank=1+len(list(self.graph.edges()))//2 - len(list(self.graph.nodes()))
             if self.rank!=len(inclusionlist):
                     raise ValueError("Rank has dropped. Input was not a basis.")
         else:
@@ -491,7 +491,7 @@ class FGSubgroupOfFree(FGSubgroup, FGFreeGroup):
             else:
                 if verbose:
                     print("Received input Stallings Graph")
-                self.rank=1+len(self.graph.edges())//2 - len(self.graph.nodes())
+                self.rank=1+len(list(self.graph.edges()))//2 - len(list(self.graph.nodes()))
                 try: # see if the graph has a maximal subtree and generators labeled
                     for e in self.graph.out_edges(self.graph.basepoint,data=True):
                         e[2]['treelabel']
@@ -506,7 +506,7 @@ class FGSubgroupOfFree(FGSubgroup, FGFreeGroup):
                     print("Construcing inclusionlist")
                 spathtov=super_path_to_vertex(self.graph) # dict spathtov[v]=superletters along edge path from basepoint to v through marked maxtree
                 for i in range(1,1+self.rank): 
-                    for edge in self.graph.edges(keys=True,data=True):# find the edge that's the i-th basis element of the subgroup
+                    for edge in list(self.graph.edges(keys=True,data=True)):# find the edge that's the i-th basis element of the subgroup
                         if self.graph[edge[0]][edge[1]][edge[2]]['treelabel']==i:
                             break
                     else:
@@ -582,14 +582,14 @@ class FGSubgroupOfFree(FGSubgroup, FGFreeGroup):
         Return index of self in supergroup.
         """
         iscover=True
-        for v in self.graph.nodes():
+        for v in list(self.graph.nodes()):
             if len(self.graph.out_edges(v))<2*self.supergroup.rank:
                 iscover=False
                 break
         if not iscover:
             return float('inf')
         else:
-            return len(self.graph.nodes())
+            return len(list(self.graph.nodes()))
     
 
     def lifts(self,w, verbose=False):
@@ -602,7 +602,7 @@ class FGSubgroupOfFree(FGSubgroup, FGFreeGroup):
             print("Finding lifts of word "+w())
         theletters=[i for i in w.letters]
         theSG=self.graph
-        verts=set(theSG.nodes())
+        verts=set(list(theSG.nodes()))
         liftsInSubgroup=[]
         vertssofar=0
         if verbose:
@@ -761,7 +761,7 @@ class StallingsGraph(nx.MultiDiGraph):
                     nextletter=newletters.pop(0)
                     self.add_node(counter)
                     try:
-                        k=1+max([edge[2] for edge in self.edges(keys=True)])
+                        k=1+max([edge[2] for edge in list(self.edges(keys=True))])
                     except ValueError: # there aren't any edges yet
                         k=1
                     self.add_edge(currentvert,counter,superlabel=nextletter, treelabel=0, key=k)
@@ -778,11 +778,11 @@ class StallingsGraph(nx.MultiDiGraph):
                     pass
         else:
             nx.MultiDiGraph.__init__(self)
-            for e in graph.edges(keys=True,data=True):
+            for e in list(graph.edges(keys=True,data=True)):
                 if e[2]!=0:
                     thiskey=e[2]
                 else:
-                    thiskey=len(graph.edges())
+                    thiskey=len(list(graph.edges()))
                 nx.MultiDiGraph.add_edge(self,e[0],e[1],thiskey,superlabel=e[3]['label'])
                 nx.MultiDiGraph.add_edge(self,e[1],e[0],-thiskey,superlabel=-e[3]['label'])
             self.basepoint=basepoint
@@ -793,10 +793,10 @@ class StallingsGraph(nx.MultiDiGraph):
         data=dict([(x,kwargs[x]) for x in kwargs if x!='key'])
         if 'key' in kwargs:
             key=kwargs['key']
-        elif not self.edges():
+        elif not list(self.edges()):
             key=1
         else:
-            key=1+max([edge[2] for edge in self.edges(keys=True)])
+            key=1+max([edge[2] for edge in list(self.edges(keys=True))])
         nx.MultiDiGraph.add_edge(self,origin,terminus, key, **data)
         # now add the inverse edge, reversing key and treelabel, superlabel, if they exist.
         try:
@@ -826,10 +826,10 @@ class StallingsGraph(nx.MultiDiGraph):
         nx.MultiDiGraph.remove_node(self,vert)
 
     def clone_node(self,vert ,new_node=None):
-        if new_node in self.nodes():
+        if new_node in list(self.nodes()):
             raise KeyError(str(new_node)+" is already in the graph")
         if new_node is None:
-            new_node=1+max(self.nodes())
+            new_node=1+max(list(self.nodes()))
         self.add_node(new_node)
         for edge in self.out_edges(vert,keys=True,data=True):
             if edge[1]==vert: # this edge is a loop at v
@@ -865,7 +865,7 @@ class StallingsGraph(nx.MultiDiGraph):
         return set([edge[1] for edge in self.out_edges(vertex)]+[edge[0] for edge in self.in_edges(vertex)])
 
     def posedges(self):
-        return [edge[:3] for edge in self.edges(keys=True, data=True) if edge[3]['superlabel']>0]
+        return [edge[:3] for edge in list(self.edges(keys=True, data=True)) if edge[3]['superlabel']>0]
 
     def fold(self, marking=None, inversemarking=None, verbose=False):
         try: # see if the graph has a maximal subtree and generators labeled
@@ -908,14 +908,14 @@ class StallingsGraph(nx.MultiDiGraph):
                     deletedverts+=1
                     #fish.animate(amount=deletedverts)
             vertstoremove=[v for (v,d) in simplecoregraph.degree() if v!=self.basepoint and d==1]
-        vertsinthecore=set(simplecoregraph.nodes())
+        vertsinthecore=set(list(simplecoregraph.nodes()))
         self.remove_nodes_from([v for v in self if v not in vertsinthecore])
 
  
         
 def unfolded(theSG):
     "Return key for vertex which is not folded "
-    for vertex in theSG.nodes():
+    for vertex in list(theSG.nodes()):
         edges=list(theSG.out_edges(vertex,keys=True,data=True))
         for i in range(len(edges)-1):
             for j in range(i+1,len(edges)):
@@ -1192,10 +1192,10 @@ def super_path_to_vertex(theSG):
     """
     reps=dict()
     tree=StallingsGraph(basepoint=theSG.basepoint)
-    for e in theSG.edges(keys=True,data=True):
+    for e in list(theSG.edges(keys=True,data=True)):
         tree.add_edge(e[0],e[1],key=e[2],**e[3])
     sphere=dict()
-    for e in tree.edges(keys=True,data=True):
+    for e in list(tree.edges(keys=True,data=True)):
         if e[3]['treelabel']!=0:
             tree.remove_edge(e[0],e[1],e[2])
         elif e[3]['superlabel']<0:
@@ -1270,12 +1270,12 @@ def mark_max_tree(theSG,rootvertex=None, verbose=False):
     """
     if rootvertex is None:
         rootvertex=theSG.basepoint
-    for e in theSG.edges(keys=True):
+    for e in list(theSG.edges(keys=True)):
         try:
             del theSG[e[0]][e[1]][e[2]]['treelabel']
         except KeyError:
             pass
-    unvisited=set(theSG.nodes())
+    unvisited=set(list(theSG.nodes()))
     totalnumverts=len(unvisited)
     if verbose:
         pass
@@ -1305,7 +1305,7 @@ def mark_max_tree(theSG,rootvertex=None, verbose=False):
                 else:
                     theSG[edge[0]][edge[1]][edge[2]]['treelabel']=-rank
                     theSG[edge[1]][edge[0]][-edge[2]]['treelabel']=rank
-    for edge in theSG.edges(keys=True,data=True):# the subtree is complete. any remaining edges are not in it
+    for edge in list(theSG.edges(keys=True,data=True)):# the subtree is complete. any remaining edges are not in it
         if e[0] in unvisited:
             pass # the graph is disconnected and this edge is not in the component containing the basepoint
         elif 'treelabel' in edge[3]:
@@ -1342,7 +1342,7 @@ def subgroup_intersection(*subgroups, **kwargs):
     sg=StallingsGraph([],basepoint)
     labellededges=dict()
     for i in range(1,1+F.rank):
-        labellededges[i]=[[edge for edge in subgroup.graph.edges(data=True) if edge[2]['superlabel']==i] for subgroup in subgroups]
+        labellededges[i]=[[edge for edge in list(subgroup.graph.edges(data=True)) if edge[2]['superlabel']==i] for subgroup in subgroups]
     if verbose:
         totalnumberedges=sum([prod([len(j) for j in labellededges[i]]) for i in labellededges])
         print(str(totalnumberedges)+" edges in the product graph")
@@ -1396,13 +1396,13 @@ def primitive_lift_cover(wordlist, verbose=False):
     sg.fold()
     deficiencies=dict()
     for i in range(1,1+F.rank):
-        deficiencies[i]=set(sg.nodes())
-        deficiencies[-i]=set(sg.nodes())
-    for v in sg.nodes():
+        deficiencies[i]=set(list(sg.nodes()))
+        deficiencies[-i]=set(list(sg.nodes()))
+    for v in list(sg.nodes()):
         for e in sg.out_edges(v,keys=True,data=True):
             deficiencies[e[3]['superlabel']].remove(v)
-    thiskey=1+max([0]+[e[2] for e in sg.edges(keys=True)])
-    thistreelabel=1+max([0]+[e[3]['treelabel'] for e in sg.edges(keys=True,data=True)])
+    thiskey=1+max([0]+[e[2] for e in list(sg.edges(keys=True))])
+    thistreelabel=1+max([0]+[e[3]['treelabel'] for e in list(sg.edges(keys=True,data=True))])
     for i in range(1,1+F.rank):
         while(deficiencies[i]):
             u=deficiencies[i].pop()

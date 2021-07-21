@@ -166,7 +166,7 @@ class WGraph(omg.OrderedMultiGraph):
         """
         return a wordlist generating this Whitehead graph
         """
-        if len(self.edges())==0:
+        if len(list(self.edges()))==0:
             return [self.group.word([])]
         traversed=set()
         wordlist=[]
@@ -199,10 +199,10 @@ class WGraph(omg.OrderedMultiGraph):
             thispermutation=inputpermutation+(valence-1,)
         else:
             thispermutation=inputpermutation
-        newedgeorder=dict([(thispermutation[i],self.node[thisvertex]['edgeorder'][i]) for i in range(valence)])
+        newedgeorder=dict([(thispermutation[i],self.nodes[thisvertex]['edgeorder'][i]) for i in range(valence)])
         newsplicemap=dict([(thispermutation[i],self.splicemaps[thisvertex][i]) for i in range(valence)])
         newinversesplicemap=dict([(j,thispermutation[self.splicemaps[-thisvertex][j]]) for j in range(valence)])
-        self.node[thisvertex]['edgeorder']=[newedgeorder[i] for i in range(valence)]
+        self.nodes[thisvertex]['edgeorder']=[newedgeorder[i] for i in range(valence)]
         self.splicemaps[thisvertex]=[newsplicemap[i] for i in range(valence)]
         self.splicemaps[-thisvertex]=[newinversesplicemap[i] for i in range(valence)]
 
@@ -232,11 +232,11 @@ def wgrow_word(W,w):
     """
     Returns generalized Whitehead graph over the segment w
     """
-    #Gedges=[((edge[0],), (edge[1],), (edge[2],), edge[3]) for edge in W.edges(keys=True, data=True)] #don't think we use any edge data
-    Gedges=[((edge[0],), (edge[1],), (edge[2],)) for edge in W.edges(keys=True)]
-    Gedgeorders=dict(((vert,),[(edge,) for edge in W.node[vert]['edgeorder']]) for vert in W.nodes())  #{(vert,):[(edge,) for edge in W.node[vert]['edgeorder']] for vert in W.nodes_iter()}
+    #Gedges=[((edge[0],), (edge[1],), (edge[2],), edge[3]) for edge in list(W.edges(keys=True, data=True))] #don't think we use any edge data
+    Gedges=[((edge[0],), (edge[1],), (edge[2],)) for edge in list(W.edges(keys=True))]
+    Gedgeorders=dict(((vert,),[(edge,) for edge in W.nodes[vert]['edgeorder']]) for vert in list(W.nodes()))  #{(vert,):[(edge,) for edge in W.nodes[vert]['edgeorder']] for vert in W.nodes()}
     G=omg.OrderedMultiGraph(Gedges,Gedgeorders)
-    for vert in W.nodes(): # We have missed isolated vertices. Add them back.
+    for vert in list(W.nodes()): # We have missed isolated vertices. Add them back.
         if W.valence(vert)==0:
             G.add_vertex((vert,))
     # G is a deep copy of W so that vertex and edge names are all length 1 tuples
