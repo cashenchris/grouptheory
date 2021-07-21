@@ -10,8 +10,8 @@
 ## $ ./vg.py aabbccacb
 ## False
 
-import freegroup
-import virtuallygeometric
+import grouptheory.freegroups.freegroup as freegroup
+import grouptheory.freegroups.virtuallygeometric
 import sys
 
 ####

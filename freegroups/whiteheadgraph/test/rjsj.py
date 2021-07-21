@@ -1,9 +1,9 @@
-import freegroups.freegroup as freegroup
-import freegroups.AutF as aut
+import grouptheory.freegroups.freegroup as freegroup
+import grouptheory.freegroups.AutF as aut
 import grouptheory.group as group
 import copy
-import freegroups.whiteheadgraph as wg
-from knownexamples import *
+import grouptheory.freegroups.whiteheadgraph as wg
+from grouptheory.freegroups.whiteheadgraph.test.knownexamples import *
 
 
 

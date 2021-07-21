@@ -1,6 +1,6 @@
 from __future__ import division
 import sympy as sym
-import hyperbolicdisc as hdisc
+import grouptheory.freegroups.whiteheadgraph.draw.hyperbolicdisc as hdisc
 
 
 def cnorm2(z):

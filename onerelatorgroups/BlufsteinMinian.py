@@ -1,7 +1,7 @@
 import networkx as nx
-import smallcancellation as sc
-import freegroups.freegroup as fg
-import freegroups.whiteheadgraph as wg
+import grouptheory.smallcancellation as sc
+import grouptheory.freegroups.freegroup as fg
+import grouptheory.freegroups.whiteheadgraph as wg
 import itertools
 from fractions import Fraction
 

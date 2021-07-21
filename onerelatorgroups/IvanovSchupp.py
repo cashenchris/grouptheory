@@ -1,4 +1,4 @@
-import freegroups.freegroup as fg
+import grouptheory.freegroups.freegroup as fg
 
 
                    

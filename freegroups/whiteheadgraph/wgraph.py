@@ -1,9 +1,9 @@
 import copy
-import freegroups.freegroup as freegroup
+import grouptheory.freegroups.freegroup as freegroup
 import grouptheory.group as group
 import networkx as nx
-import orderedmultigraph as omg
-import whiteheadreduce as wreduce
+import grouptheory.freegroups.whiteheadgraph.orderedmultigraph as omg
+import grouptheory.freegroups.whiteheadgraph.whiteheadreduce as wreduce
 #from fish import ProgressFish
 
 

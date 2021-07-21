@@ -1,16 +1,16 @@
 import networkx as nx
-import automaticgroups as ag
-import smallcancellation as sc
-import freegroups.freegroup as fg
-import freegroups.whiteheadgraph as wg
-from IvanovSchupp import IvanovSchupp
-from BlufsteinMinian import BlufsteinMinian
+import grouptheory.automaticgroups as ag
+import grouptheory.smallcancellation as sc
+import grouptheory.freegroups.freegroup as fg
+import grouptheory.freegroups.whiteheadgraph as wg
+from grouptheory.onerelatorgroups.IvanovSchupp import IvanovSchupp
+from grouptheory.onerelatorgroups.BlufsteinMinian import BlufsteinMinian
 import pexpect
 from fractions import Fraction
 import itertools
 import os
 from collections import deque
-import freegroups.enumeratefreegroupwords as enum
+import grouptheory.freegroups.enumeratefreegroupwords as enum
 import glob
 import subprocess32
 
@@ -71,12 +71,12 @@ def is_hyperbolic(relator,reportreason=False,**kwargs):
             return format_return(True, 'cyclically pinched')
     # Try Ivanov-Scupp criteria, always gives an answer if some generator appears at most 3 times
     if 'verbose' in kwargs and kwargs["verbose"]:
-        print "Checking Ivanov-Schupp criteria."
+        print("Checking Ivanov-Schupp criteria.")
     ISresult=IvanovSchupp(r2,reportreason=False)
     if ISresult is not None:
         return format_return(ISresult,'Ivanov Schupp')
     if 'verbose' in kwargs and kwargs["verbose"]:
-        print "Ivanonv-Schupp does not apply."
+        print("Ivanonv-Schupp does not apply.")
     # check if relator defines small cancellation presentation
     Cprimebound=sc.Cprimebound([r2])
     if sc.smallcancellation([r2],Cprimebound):
@@ -85,13 +85,13 @@ def is_hyperbolic(relator,reportreason=False,**kwargs):
     if BlufsteinMinian(r2,Cprimebound):
         return format_return(True,'Blufstein Minian')
     if 'verbose' in kwargs and kwargs["verbose"]:
-        print "Not small cancellation."
+        print("Not small cancellation.")
     # try GAP with walrus
     if 'walrus' in kwargs and kwargs['walrus']==False:
         pass
     else:
         if 'verbose' in kwargs and kwargs['verbose']:
-            print "Trying GAP with walrus."
+            print("Trying GAP with walrus.")
         if 'gapprompt' in kwargs:
             gapprompt=kwargs["gapprompt"]
         else:
@@ -114,12 +114,12 @@ def is_hyperbolic(relator,reportreason=False,**kwargs):
         if walrus:
             return format_return(True,'walrus')
         if 'verbose' in kwargs and kwargs["verbose"]:
-            print "walrus failed."
+            print("walrus failed.")
     # try kbmag
     if 'kb' in kwargs and kwargs['kb']==False:
         return format_return(None,None)
     if 'verbose' in kwargs and kwargs["verbose"]:
-        print "Trying kbmag"
+        print("Trying kbmag")
     autandhyp=ag.certify_hyperbolicity(r2(),**kwargs)
     if autandhyp:
         return format_return(True,'kbmag')
@@ -251,12 +251,12 @@ def girth(relator,verbose=False,**kwargs):
     if not os.path.isfile(thefilename+'.diff1'):
         try:
             subprocess32.run(['autgroup','-silent',thefilename],check=True,timeout=timeout)
-        except subprocess32.TimeoutExpired, subprocess32.CalledProcessError:
+        except (subprocess32.TimeoutExpired, subprocess32.CalledProcessError) as e:
             if cleanup:
                 files = glob.glob('./'+thefilename+"*")
                 for file in files:
                     os.remove(file)
-            raise
+            raise e
     foundrelation=False
     currentlength=0
     while not foundrelation:
@@ -264,7 +264,7 @@ def girth(relator,verbose=False,**kwargs):
         if 2*currentlength==len(relatorasstring) or 2*currentlength-1==len(relatorasstring):
             return len(relatorasstring),relatorasstring,''
         if verbose:
-            print "Searching words of length "+str(currentlength)
+            print("Searching words of length "+str(currentlength))
         wordsofcurrentlength=enum.generate_words(F.rank,currentlength,currentlength)
         for theintlist in wordsofcurrentlength:
             thestring=F.word(theintlist)()

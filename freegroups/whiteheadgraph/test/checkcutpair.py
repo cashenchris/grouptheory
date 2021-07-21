@@ -1,10 +1,10 @@
-import freegroups.whiteheadgraph as wg
+import grouptheory.freegroups.whiteheadgraph as wg
 import copy
 import grouptheory.group as group
 #import freegroups.whiteheadgraph.orderedmultigraph as omg
-import freegroups.AutF as aut
-import freegroups.freegroup as freegroup
-from knownexamples import *
+import grouptheory.freegroups.AutF as aut
+import grouptheory.freegroups.freegroup as freegroup
+from grouptheory.freegroups.whiteheadgraph.test.knownexamples import *
 
 
 

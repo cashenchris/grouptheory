@@ -1,4 +1,5 @@
 import numpy as np
+import numty
 from numty.quadResidues import legendre
 import itertools
 

@@ -190,7 +190,7 @@ class FGGroup(object):
         Word that is the result of a random walk without backtracking of given length in the generators and inverses.
         """
         numgens=len(self.gens)
-        letterlist = range(1,numgens+1)+range(-1,-(numgens+1),-1)
+        letterlist = list(range(1,numgens+1))+list(range(-1,-(numgens+1),-1))
         letters = []
         for n in range(length):
             nextletter=random.choice(letterlist)

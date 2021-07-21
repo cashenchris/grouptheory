@@ -1,7 +1,7 @@
-import wgraph as wg
+import grouptheory.freegroups.whiteheadgraph.wgraph as wg
 import grouptheory.group as group
-import freegroups.freegroup as fg
-import freegroups.AutF as aut
+import grouptheory.freegroups.freegroup as fg
+import grouptheory.freegroups.AutF as aut
 import networkx as nx
 from itertools import product
 

@@ -1,13 +1,13 @@
 import copy
 import networkx as nx
 import grouptheory.group as group
-import freegroups.freegroup as freegroup
-import freegroups.graphofgroups as gog
-import wgraph
-import orderedmultigraph as omg
-import whiteheadreduce as wreduce
-import partition as part
-import freegroups.enumeratefreegroupwords as enumwords
+import grouptheory.freegroups.freegroup as freegroup
+import grouptheory.freegroups.graphofgroups as gog
+import grouptheory.freegroups.whiteheadgraph.wgraph as wgraph
+import grouptheory.freegroups.whiteheadgraph.orderedmultigraph as omg
+import grouptheory.freegroups.whiteheadgraph.whiteheadreduce as wreduce
+import grouptheory.freegroups.whiteheadgraph.partition as part
+import grouptheory.freegroups.enumeratefreegroupwords as enumwords
 
 
 #def is_primitive(F,w,guaranteenonpower=False):

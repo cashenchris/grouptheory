@@ -1,11 +1,11 @@
-import group
+import grouptheory.group
 import networkx as nx
-import whiteheadgraph.build.orderedmultigraph as omg
-import whiteheadgraph.build.wgraph as wg
+import grouptheory.freegroups.whiteheadgraph.orderedmultigraph as omg
+import grouptheory.freegroups.whiteheadgraph.wgraph as wg
 import math
 import random
-import hyperbolicdisc as hdisc
-import hyperbolicupperhalfplane as hup
+import grouptheory.freegroups.whiteheadgraph.draw.hyperbolicdisc as hdisc
+import grouptheory.freegroups.whiteheadgraph.draw.hyperbolicupperhalfplane as hup
 import sympy as sym
 
 def Edist(p,q):

@@ -1,10 +1,10 @@
 import copy
 import grouptheory.group as group
-import freegroups.whiteheadgraph as wg
-import freegroups.AutF as aut
-from knownexamples import *
-import freegroups.freegroup as freegroup
-import freegroups.virtuallygeometric as vg
+import grouptheory.freegroups.whiteheadgraph as wg
+import grouptheory.freegroups.AutF as aut
+from grouptheory.freegroups.whiteheadgraph.test.knownexamples import *
+import grouptheory.freegroups.freegroup as freegroup
+import grouptheory.freegroups.virtuallygeometric as vg
 
 
 

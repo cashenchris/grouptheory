@@ -1,5 +1,5 @@
 import itertools
-from stallings import xgraph
+from grouptheory.freegroups.geometric.stallings import xgraph
 
 if 'combinations' not in dir(itertools):
     def combinations(iterable, r):

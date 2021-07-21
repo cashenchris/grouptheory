@@ -1,13 +1,13 @@
 # imports Whitehead graph stuff and sets up some basic examples.
 import grouptheory.group
-import freegroup 
+import grouptheory.freegroups.freegroup 
 import networkx as nx
-import AutF as aut
-import graphofgroups as gog
-import whiteheadgraph as wg
-from whiteheadgraph.test.knownexamples import *
-import whiteheadgraph.test.checkcutpair
-import whiteheadgraph.test.rjsj
+import grouptheory.freegroups.AutF as aut
+import grouptheory.freegroups.graphofgroups as gog
+import grouptheory.freegroups.whiteheadgraph as wg
+from grouptheory.freegroups.whiteheadgraph.test.knownexamples import *
+import grouptheory.freegroups.whiteheadgraph.test.checkcutpair as checkcutpair
+import grouptheory.freegroups.whiteheadgraph.test.rjsj as rjsj
 
-whiteheadgraph.test.checkcutpair.testall()
-whiteheadgraph.test.rjsj.testall()
+checkcutpair.testall()
+rjsj.testall()

@@ -1,5 +1,5 @@
-import freegroups.freegroup as fg
-import freegroups.whiteheadgraph as wg
+import grouptheory.freegroups as fg
+import grouptheory.freegroups.whiteheadgraph as wg
 from collections import deque
 from fractions import Fraction
 import itertools

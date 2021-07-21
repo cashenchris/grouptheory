@@ -1,6 +1,6 @@
 import networkx as nx
-import freegroup as fg
-import whiteheadgraph as wg #  need this for primitivity check
+import grouptheory.freegroups.freegroup as fg
+import grouptheory.freegroups.whiteheadgraph as wg #  need this for primitivity check
 
 
     

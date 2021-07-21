@@ -74,7 +74,7 @@ class groupelement(object):
                 try:
                     self.string=wordreduce(thestring,thefilename,self.location_of_wordreduce_binary)
                 except OSError:
-                    print thestring,thefilename
+                    print(thestring+thefilename)
                     assert(False)
                 
     def __str__(self):
@@ -142,7 +142,7 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
         raise UsageError('relator should be a string or list of nonzero integers')
     if not generators:
         rank=max(abs(x) for x in relatoraslist)
-        generators=[intlisttoletterstring([i]) for i in range(-rank,0)+range(1,rank+1)]
+        generators=[intlisttoletterstring([i]) for i in list(range(-rank,0))+list(range(1,rank+1))]
     if 'tmp_directory' in kwargs:
         directory=kwargs['tmp_directory']
     else:
@@ -159,7 +159,7 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
     aut=False 
     hyp=False 
     if verbose:
-        print "Attempting to find automatic structure with generator order: "+str(generators)
+        print("Attempting to find automatic structure with generator order: "+str(generators))
     try:
         #subprocess32.run(['autgroup','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
         if 'kbprogargs' in kwargs:
@@ -171,20 +171,20 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
         subprocess32.run(['gpaxioms','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
         aut=True # all subprocesses completed in time and with returncode=0
         if verbose:
-            print "Automatic structure found."
+            print("Automatic structure found.")
     except (subprocess32.TimeoutExpired,subprocess32.CalledProcessError) as e: # if either autgroup timed out or complete with nonzero returncode
         if verbose:
-            print "Failed to find automatic structure with error: "+str(e)
+            print("Failed to find automatic structure with error: "+str(e))
         pass # aut remains False
     if aut:
         try:
             if verbose:
-                print "Checking hyperbolicity."
+                print("Checking hyperbolicity.")
             subprocess32.run(['gpgeowa','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
             hyp=True
         except (subprocess32.TimeoutExpired,subprocess32.CalledProcessError) as e:
             if verbose:
-                print "Failed to find hyperbolic structure with error: "+str(e)
+                print("Failed to find hyperbolic structure with error: "+str(e))
             pass # hyp remains false
     if cleanup:
         files = glob.glob(directory+'/'+thefilename+"*")
@@ -214,13 +214,13 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
     else:
         if tryhard==1:
             if verbose:
-                print "Trying again with double wait time."
+                print("Trying again with double wait time.")
             return certify_hyperbolicity(relator,0,generators,2*timeout,verbose,cleanup,**kwargs)
         if tryhard==2:
             if verbose:
                 for i in range(10):
                     orderedgens=random.sample(generators,len(generators))
-                    print "Trying kbmag with generator order "+str(orderedgens)
+                    print("Trying kbmag with generator order "+str(orderedgens))
                     result=certify_hyperbolicity(relator,0,orderedgens,2*timeout,verbose,cleanup,**kwargs)
                     if result==True:
                         return True

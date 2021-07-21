@@ -1,7 +1,7 @@
 from __future__ import division
 import copy
-from word import *
-from stallings import *
+from grouptheory.freegroups.geometric.word import *
+from grouptheory.freegroups.geometric.stallings import *
 
 def cyclicreduce(letters):
     if letters[0]+letters[-1]==0:

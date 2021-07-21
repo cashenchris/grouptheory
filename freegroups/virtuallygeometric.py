@@ -1,10 +1,10 @@
 import re
 import grouptheory.group
-import freegroup
-import geometric.gengraphs as gengraphs
-import heegaard
-import geometric.subgroup as subgroup
-import whiteheadgraph as wg
+import grouptheory.freegroups.freegroup as freegroup
+import grouptheory.freegroups.geometric.gengraphs as gengraphs
+import grouptheory.freegroups.geometric.heegaard
+import grouptheory.freegroups.geometric.subgroup as subgroup
+import grouptheory.freegroups.whiteheadgraph as wg
 
 # F=freegroup.FGFreeGroup(numgens=3)
 # wordlist1=[F.word('aabbccacb')]

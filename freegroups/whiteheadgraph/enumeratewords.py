@@ -2,7 +2,7 @@
 import grouptheory.group as group
 import grouptheory.freegroups.freegroup as freegroup
 import itertools
-import whiteheadreduce as wr
+import grouptheory.freegroups.whiteheadgraph.whiteheadreduce as wr
 
 def advance_counter(thecounter,place,resetval):
     """

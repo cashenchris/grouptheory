@@ -1,5 +1,5 @@
 from grouptheory.group import *
-import AutF as aut
+import grouptheory.freegroups.AutF as aut
 import networkx as nx
 
 

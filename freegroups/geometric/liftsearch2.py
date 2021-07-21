@@ -1,7 +1,7 @@
 import re, copy
-import heegaard
-import gengraphs
-import subgroup
+import grouptheory.freegroups.geometric.heegaard
+import grouptheory.freegroups.geometric.gengraphs
+import grouptheory.freegroups.geometric.subgroup
 
 
 def look_for_good_cover(wordlist,rank,degree,Heegaardwaittime=10,verbose=True):

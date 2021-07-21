@@ -1,7 +1,7 @@
-import freegroups.enumeratefreegroupwords as enum
-import freegroups.AutF as aut
-import freegroups.freegroup as fg
-import freegroups.whiteheadgraph as wg
+import grouptheory.freegroups.enumeratefreegroupwords as enum
+import grouptheory.freegroups.AutF as aut
+import grouptheory.freegroups.freegroup as fg
+import grouptheory.freegroups.whiteheadgraph as wg
 from collections import deque
 import networkx as nx
 
