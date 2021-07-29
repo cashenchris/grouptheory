@@ -1,10 +1,9 @@
 from math import gcd
 import numpy as np
-from frozen_dict import FrozenDict #https://github.com/zelaznik/frozen_dict.git
 import itertools
-import group
+import grouptheory.group
 
-# class permutation has main representation as a dictionary of input:ouput pairs. To make permutations immutable, this dictionary is implemented as a FrozenDict.
+# class permutation has main representation as a dictionary of input:ouput pairs. 
 
 class permutation(object):
     """
@@ -33,25 +32,26 @@ class permutation(object):
         else:
             raise InputError
         if thedict:
-            self.thedict=FrozenDict({k:v for k, v in thedict.items() if k!=v})
+            self.thedict=dict({k:v for k, v in thedict.items() if k!=v})
         elif thecycles:
             thisdict=dict()
             for cycle in thecycles:
                 if len(cycle)>1:
                     for i in range(len(cycle)):
                         thisdict[cycle[i]]=cycle[(i+1)%len(cycle)]
-            self.thedict=FrozenDict(thisdict)
+            self.thedict=dict(thisdict)
         else:
-            self.thedict=FrozenDict()
+            self.thedict=dict()
+        self.thefrozenset=frozenset({(k,self.thedict[k]) for k in self.thedict})
         thecycletypes=dict()
         for cycle in self.cycles():
             try:
                 thecycletypes[len(cycle)]+=1
             except KeyError:
                 thecycletypes[len(cycle)]=1
-        self.thecycletypes=FrozenDict(thecycletypes)
+        self.thecycletypes=dict(thecycletypes)
         self.theorder=lcm(*[l for l in self.thecycletypes.keys()])
-        self.thehash=hash(self.thedict)
+        self.thehash=hash(self.thefrozenset)
         
     def __repr__(self):
         thestring=''
