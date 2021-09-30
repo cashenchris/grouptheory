@@ -817,6 +817,9 @@ class InnerAutomorphism(Automorphism):
         self.domain=domain
         self.codomain=domain
 
+    def __repr__(self):
+        return str(self.domain)+' -> '+str(self.codomain)+': x -> ('+str(self.gpelement)+')**(-1)*x*'+str(self.gpelement)
+
     def variant_generators(self):
         return range(1,1+len(self.domain.gens))
         

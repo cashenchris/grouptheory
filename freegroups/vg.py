@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 ## usage:  ./vg.py word1, word2, ...
 ## decide if wordlist is virtually geometric
@@ -11,7 +11,7 @@
 ## False
 
 import grouptheory.freegroups.freegroup as freegroup
-import grouptheory.freegroups.virtuallygeometric
+import grouptheory.freegroups.virtuallygeometric as virtuallygeometric
 import sys
 
 ####

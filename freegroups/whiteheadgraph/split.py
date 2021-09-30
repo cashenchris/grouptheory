@@ -17,6 +17,24 @@ import grouptheory.freegroups.enumeratefreegroupwords as enumwords
 # def is_RJSJ(F,wlmap,thisgog, verbose=False):
 # def get_RJSJ(F,whiteheadgraphorwordlist,withmap=False, printresult=False, nameprefix='', blind=True, simplified=False, minimized=False, verbose=False,cutpairsearchrecursionlimit=None, maxnumberof2componentcutstoconsider=None):
 
+"""
+>>> F=fg.FGFreegroup(numgens=3); x=F.word([1]); y=F.word([2]); z=F.word([3])
+>>> is_primitive(F,x)
+True
+>>> is_primitive(F,x*x*y*y*z*z*x*z*y)
+False
+>>> splits_freely_rel(F, [x*y*x**(-1)*y**(-1),z])
+True
+>>> splits_freely_rel(F,[x,y,z,xyz])
+False
+>>> is_rigid_rel(F,[x,y,z,xyz])
+False
+>>> is_rigid_rel(F,[x*x*y*y*z*z*x*z*y])
+True
+"""
+
+
+
 class TooBigError(Exception):
      def __init__(self, value,howbig=None):
          self.value = value
@@ -1284,3 +1302,7 @@ def contains_all_3_letter_subwords(*wordlist):
     assert(len(the3LetterSubwords)<=total3LetterSubwords)
     return len(the3LetterSubwords)==total3LetterSubwords
         
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()

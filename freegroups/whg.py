@@ -1,4 +1,6 @@
-# imports Whitehead graph stuff and sets up some basic examples.
+# imports Whitehead graph stuff, sets up some basic examples, and runs some tests.
+# in ipython do:
+# %run grouptheory/freegroups/whg.py
 import grouptheory.group
 import grouptheory.freegroups.freegroup 
 import networkx as nx

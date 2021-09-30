@@ -11,10 +11,29 @@ except ImportError:
     pass
 
 
-# def is_minimal(F,wordlist):
-# def whitehead_complexity(F,wordlist):
-# def whitehead_minimal(F,wordlist,extrawordlist=None,simplified=False,verbose=False,blind=False,stopatdisconnected=False, minimizingsequence=False,cutvertsonly=False,stopatfirstreduction=False):
-# def whitehead_minimal_representative(inputword):
+"""
+>>> F=fg.FGFreeGroup(numgens=3);x=F.word([1]),y=F.word([2]),z=F.word([3])
+>>> is_minimal(F,[x])
+True
+>>> is_minimal(F,[x*y])
+False
+>>> is_minimal(F,[x,x*y])
+True
+>>> whitehead_complexity(F,[x,x*y])
+3
+>>> whitehead_complexity(F,[x*y])
+1
+>>> whitehead_complexity(F,[x**(3),y*x*y**(-1)]) # note that we simplify the imput to ignore powers and conjugates
+1
+>>> whitehead_minimal(F,[x])
+True
+>>> whitehead_minimal(F,[x*y])
+False
+>>> whitehead_minimal_representative('abcabc') # this one does remember if the input word is a power
+cc
+>>> whitehead_minimal_representative([1,2,1,-2])
+[1, 2, 1, -2]
+"""
 
 def find_mincut_part(G,origin,terminus):
     """
@@ -277,3 +296,8 @@ def whitehead_minimal_representative(inputword):
         return resutlword.letters
     else:
         return resutlword
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()

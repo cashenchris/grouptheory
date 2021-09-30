@@ -1450,6 +1450,10 @@ def intencode(rank,sequenceofnonzerointegers,shortlex=True):
     Given rank of free group and contianer of non-zero integers denoting a word in terms of numerbed generators and their inverses, encode the word as a single integer.
 
     if shortlex=True the encoding is chosen so that the shortlex ordering of the input is the same as the ordering of the out integers.
+
+    >>> x=[1,2,3,-1,-2,-3,2,3,1]
+    >>> x==intdecode(3,intencode(3,x))
+    True
     """
     if shortlex:
         thedigits=[x+rank if x>0 else x+rank+1 for x in sequenceofnonzerointegers]
@@ -1473,6 +1477,4 @@ def intdecode(rank,theint,shortlex=True):
         thelist=[x if x<rank+1 else x-(2*rank+1) for x in thelist]
     return thelist
 
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+

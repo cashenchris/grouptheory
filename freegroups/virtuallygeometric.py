@@ -17,6 +17,16 @@ def is_virtually_geometric(F,wordlist, Heegaardwaittime=10, tellmeifitsrigid=Fal
     """
     Decides if a multiword is virtually geometric.
     F is a free group. wordlist is a list of words in F.
+
+    >>> F=freegroup.FGFreeGroup(numgens=3)
+    >>> is_virtually_geometric(F,[F.word('abAB')])
+    True
+    >>> is_virtually_geometric(F,[F.word('abAAAB')])
+    True
+    >>> is_virtually_geometric(F,[F.word('AABAbaBab')])
+    True
+    >>> is_virtually_geometric(F,[F.word('aabbccacb')])
+    False
     """
     maybevirtuallygeometric=True
     rigid=True
@@ -162,3 +172,17 @@ def geometric_2_cover(wordlist,rank,Heegaardwaittime=10):
         return False
     else:
         return None
+
+
+
+
+
+
+
+    
+
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
