@@ -15,8 +15,7 @@ def imprimitivityrank(theword,precomputedWsubgroups=None):
     1
     >>> imprimitivityrank('abAB')
     2
-    >>> imprimitivityrank([1,1,2,2,3,3])
-    3
+    >>> imprimitivityrank([1,1,2,2,-3,-3])
     """
     F,w=fg.parseinputword(theword)
     if precomputedWsubgroups is None:

@@ -5,6 +5,7 @@ import grouptheory.freegroups.whiteheadgraph as wg
 import itertools
 from fractions import Fraction
 
+# FutureWarning: adjacency_matrix will return a scipy.sparse array instead of a matrix in Networkx 3.0.
     
 
 

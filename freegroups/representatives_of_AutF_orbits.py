@@ -30,7 +30,7 @@ def canonical_representative_in_AutF_orbit(inputword,compress=False,noinversion=
         return inputword
     F,theword=fg.parseinputword(inputword)
     wmin=wg.whitehead_minimal_representative(theword)
-    thereducedlevelset=reduced_levelset(wmin,noinversion)
+    thereducedlevelset=reduced_levelset(wmin,noinversion,output_as_tuples=True,assume_Whitehead_minimal=True)
     canonicalrep=shortlexmin(thereducedlevelset)
     if compress:
         return fg.intencode(F.rank,canonicalrep,shortlex=True)
@@ -113,14 +113,17 @@ def levelset(Whiteheadminimalinputword,noinversion=True):
                 newverts.add(wastuple)
     return currentcomponent
 
-def reduced_levelset(Whiteheadminimalinputword,noinversion=True,asgraph=False):
+def reduced_levelset(inputword,noinversion=True,asgraph=False,output_as_tuples=False, assume_Whitehead_minimal=False):
     """
     Given Whiteheadminimalinputword that is a Whitehead minimal word in a free group, returns the set of words of the same length that are in the same Aut(F) orbit and SLPCI minimal.
 
     Note that the output only contains the input if the input is SLPCI minimal.
+
+    If output_as_tuples=True return a set of tuples of integers. Otherwise try to output set of elements of the same type as Whiteheadminimalinputword.
     """
-    # output is set of tuples
-    F,theword=fg.parseinputword(Whiteheadminimalinputword)
+    F,theword=fg.parseinputword(inputword)
+    if not assume_Whitehead_minimal:
+        theword=wg.whitehead_minimal_representative(theword)
     if asgraph:
         G=nx.Graph()
     newverts=set([tuple(SLPCIrep(theword,noinversion=noinversion).letters)])
@@ -145,7 +148,12 @@ def reduced_levelset(Whiteheadminimalinputword,noinversion=True,asgraph=False):
     if asgraph:
         return G
     else:
-        return reducedlevelset
+        if output_as_tuples or type(inputword)==list or type(inputword)==tuple:
+            return reducedlevelset
+        elif type(inputword)==str:
+            return {F.word(w).alpha() for w in reducedlevelset}
+        else:
+            return {F.word(w) for w in reducedlevelset}
 
 
 

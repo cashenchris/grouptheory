@@ -1,6 +1,5 @@
 import sympy
 import numpy as np
-import subprocess32
 import subprocess
 import os
 import time
@@ -62,9 +61,9 @@ class groupelement(object):
             raise NameError('group definition file not found')
         if not os.path.isfile(thefilename+'.diff1'):
             if self.location_of_autgroup_binary is None:
-                subprocess32.run(['autgroup','-silent',thefilename],check=True,timeout=timeout)
+                subprocess.run(['autgroup','-silent',thefilename],check=True,timeout=timeout)
             else:
-                subprocess32.run([self.location_of_autgroup_binary,'-silent',thefilename],check=True,timeout=timeout)
+                subprocess.run([self.location_of_autgroup_binary,'-silent',thefilename],check=True,timeout=timeout)
         try:
             self.string=wordreduce(thestring,thefilename,self.location_of_wordreduce_binary)
         except OSError:#sometimes wordreduce fails for unknown reasons and it is sufficient to just try again
@@ -109,14 +108,13 @@ def wordreduce(thestring,thefilename,location_of_wordreduce_binary=None):
         p=subprocess.Popen(['wordreduce',thefilename],stdin=subprocess.PIPE,stderr = subprocess.STDOUT,stdout=subprocess.PIPE)
     else:
         p=subprocess.Popen([location_of_wordreduce_binary,thefilename],stdin=subprocess.PIPE,stderr = subprocess.STDOUT,stdout=subprocess.PIPE)
-    output=p.communicate(addstars(thestring)+';')
-    return removestars((output[0].rstrip('\n'))[95:])
+    output=p.communicate((addstars(thestring)+';').encode('utf-8'))
+    return removestars(((output[0]).decode('utf-8').rstrip('\n'))[95:])
 
 
     
 
-#----------------- the following are written specifically for 1-relator groups. 
-def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=False,cleanup=True,**kwargs):
+def certify_hyperbolicity(relators,tryhard=1,generators=None,timeout=20,verbose=False,cleanup=True,**kwargs):
     """
     Attempt to check if a one relator group is hyperbolic. 
     If return is True then group is hyperbolic. If return is False then test was inconclusive, try longer timeout.
@@ -132,16 +130,22 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
     tryhard=2 tries once, and if inconclusive tries 10 more times with double timeout time and random permutation of generator order
     tryhard=3 tries once, and if inconclusive tries again with double timeout time and every possible permutaiton of generator order. This will take a while. 
     """
-    if type(relator)==str:
-        relatorasstring=relator
-        relatoraslist=letterstringtointlist(relator)
-    elif type(relator)==list and type(relator[0])==int:
-        relatoraslist=relator
-        relatorasstring=intlisttoletterstring(relator)
+    if type(relators)==str:
+        relatorsasstrings=[relators,]
+        relatorsaslists=[letterstringtointlist(relators),]
+    elif type(relators)==list and type(relators[0])==int:
+        relatorsaslists=[relators,]
+        relatorsasstrings=[intlisttoletterstring(relators),]
+    elif type(relators)==list and type(relators[0])==str:
+        relatorsasstrings=relators
+        relatorsaslists=[letterstringtointlist(relator) for relator in relators]
+    elif type(relators)==list and type(relators[0])==list and type(relators[0][0])==int:
+        relatorsaslists=relators
+        relatorsasstrings=[intlisttoletterstring(relator) for relator in relators]
     else:
-        raise UsageError('relator should be a string or list of nonzero integers')
+        raise UsageError('relator should be a string or list of nonzero integers or a list of one or the other')
     if not generators:
-        rank=max(abs(x) for x in relatoraslist)
+        rank=max(max(abs(x) for x in relator) for relator in relatorsaslists)
         generators=[intlisttoletterstring([i]) for i in list(range(-rank,0))+list(range(1,rank+1))]
     if 'tmp_directory' in kwargs:
         directory=kwargs['tmp_directory']
@@ -154,25 +158,25 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
     if 'filename' in kwargs:
         thefilename=kwargs['filename']
     else:
-        thefilename="OneRelatorGroup-"+relatorasstring+"-"+"".join(generators)
-    writetokbmagfile(directory+'/'+thefilename,generators,[relatorasstring])
+        thefilename="MyGroup-"+"".join(generators)+"|"+",".join(relatorsasstrings)
+    writetokbmagfile(directory+'/'+thefilename,generators,relatorsasstrings)
     aut=False 
     hyp=False 
     if verbose:
         print("Attempting to find automatic structure with generator order: "+str(generators))
     try:
-        #subprocess32.run(['autgroup','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
+        #subprocess.run(['autgroup','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
         if 'kbprogargs' in kwargs:
             kbprogargument=['kbprog']+kwargs['kbprogargs']+[directory+'/'+thefilename]
         else:
             kbprogargument=['kbprog','-mt', '20', '-hf', '100', '-cn','0', '-me', '200000', '-silent', '-wd',directory+'/'+thefilename]
-        subprocess32.run(kbprogargument,check=True,timeout=timeout)
-        subprocess32.run(['gpmakefsa','-silent', directory+'/'+thefilename],check=True,timeout=timeout)
-        subprocess32.run(['gpaxioms','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
+        subprocess.run(kbprogargument,check=True,timeout=timeout)
+        subprocess.run(['gpmakefsa','-silent', directory+'/'+thefilename],check=True,timeout=timeout)
+        subprocess.run(['gpaxioms','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
         aut=True # all subprocesses completed in time and with returncode=0
         if verbose:
             print("Automatic structure found.")
-    except (subprocess32.TimeoutExpired,subprocess32.CalledProcessError) as e: # if either autgroup timed out or complete with nonzero returncode
+    except (subprocess.TimeoutExpired,subprocess.CalledProcessError) as e: # if either autgroup timed out or complete with nonzero returncode
         if verbose:
             print("Failed to find automatic structure with error: "+str(e))
         pass # aut remains False
@@ -180,9 +184,9 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
         try:
             if verbose:
                 print("Checking hyperbolicity.")
-            subprocess32.run(['gpgeowa','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
+            subprocess.run(['gpgeowa','-silent',directory+'/'+thefilename],check=True,timeout=timeout)
             hyp=True
-        except (subprocess32.TimeoutExpired,subprocess32.CalledProcessError) as e:
+        except (subprocess.TimeoutExpired,subprocess.CalledProcessError) as e:
             if verbose:
                 print("Failed to find hyperbolic structure with error: "+str(e))
             pass # hyp remains false
@@ -215,25 +219,102 @@ def certify_hyperbolicity(relator,tryhard=1,generators=None,timeout=20,verbose=F
         if tryhard==1:
             if verbose:
                 print("Trying again with double wait time.")
-            return certify_hyperbolicity(relator,0,generators,2*timeout,verbose,cleanup,**kwargs)
+            return certify_hyperbolicity(relators,0,generators,2*timeout,verbose,cleanup,**kwargs)
         if tryhard==2:
             if verbose:
                 for i in range(10):
                     orderedgens=random.sample(generators,len(generators))
                     print("Trying kbmag with generator order "+str(orderedgens))
-                    result=certify_hyperbolicity(relator,0,orderedgens,2*timeout,verbose,cleanup,**kwargs)
+                    result=certify_hyperbolicity(relators,0,orderedgens,2*timeout,verbose,cleanup,**kwargs)
                     if result==True:
                         return True
                 else:
                     return False
             else:
-                return any(certify_hyperbolicity(relator,0,random.sample(generators,len(generators)),2*timeout,verbose,cleanup) for i in range(10))
+                return any(certify_hyperbolicity(relators,0,random.sample(generators,len(generators)),2*timeout,verbose,cleanup) for i in range(10))
         if tryhard==3:
-            return any(certify_hyperbolicity(relator,0,permutedgens,2*timeout,verbose,cleanup) for permutedgens in itertools.permutations(generators))
+            return any(certify_hyperbolicity(relators,0,permutedgens,2*timeout,verbose,cleanup) for permutedgens in itertools.permutations(generators))
         return False
 
+#----------------- for reading and using directly in python the FSA automata produced by kbmag
+def readFSAfromkbmagfile(inputfile):
+    f=open(inputfile,'r')
+    lines=f.readlines()
+    for l in range(len(lines)):
+        thisline=lines[l]
+        if "type :=" in thisline:
+            if "identifiers" in thisline:
+                pass
+            else:
+                NotImplemented
+        if "names :=" in thisline:
+            names=thisline.lstrip("names := [").rstrip("] \n").split(",")
+            transition_names={names[i]:i for i in range(len(names))}
+        if "size :=" in thisline:
+            size=int(thisline.split("size := ",1)[1].rstrip(' , \n'))
+        if "initial :=" in thisline:
+            initial_state=int(thisline.lstrip(" initial := [").rstrip('], \n'))
+        if "accepting :=" in thisline:
+            accept=tuple(int(x) for x in thisline.lstrip("accepting := [").rstrip("], \n").split(".."))
+        if "format := " in  thisline:
+            if "dense deterministic" in thisline:
+                pass
+            else:
+                NotImplemented
+        if "transitions := " in thisline:
+            if thisline.lstrip(" transitions := [").rstrip(" \n"): # short transition tables start immediately, longer ones start on next line.
+                starttransitiontable=l
+            else:
+                starttransitiontable=l+1
+    for l in range(starttransitiontable+1,len(lines)):
+        if lines[l].strip()=="]":
+            endtrasitiontable=l
+            break
+    assert(endtrasitiontable-starttransitiontable==size)
+    transitiontable=list()
+    for l in range(starttransitiontable,endtrasitiontable):
+        transitiontable.append([int(x) for x in lines[l].lstrip(" transitions := [").rstrip("], \n").split(",")])
+    return  transition_names,initial_state,accept,transitiontable
 
+class FSA():
+    def __init__(self, transition_names,initial_state,accept,transitiontable):
+        self.transition_names=transition_names
+        self.initial_state=initial_state
+        self.accept=accept
+        self.transitiontable=transitiontable
 
+    def __call__(self,inputword):
+        currentstate=self.initial_state
+        for c in inputword:
+            thistransition=self.transition_names[c]
+            currentstate=self.transitiontable[currentstate-1][thistransition]
+            if currentstate==0:
+                return False
+        return self.is_accept_state(currentstate)
+
+    def is_accept_state(self,n):
+        return n>=self.accept[0] and n<=self.accept[1]
+
+    def has_accepted_loop(self):
+        paths=set()
+        newpaths=set()
+        paths.add((self.initial_state,))
+        while paths:
+            for thispath in paths:
+                for nextstate in self.transitiontable[thispath[-1]-1]:
+                    if nextstate!=0:
+                        if nextstate in thispath:
+                            if any(self.is_accept_state(thispath[i]) for i in range(thispath.index(nextstate),len(thispath))):
+                                return True
+                        newpaths.add(thispath+(nextstate,))
+            paths=newpaths
+            newpaths=set()
+        return False
+
+def FSAfromkbmagfile(inputfile):
+    return FSA(*readFSAfromkbmagfile(inputfile))
+
+#----------------- the following are written specifically for 1-relator groups. 
 def growthseries(generators,relator,verbose=False,cleanup=True,**kwargs):
     """
     Compute the growth series of the shortlex automatic one relator group with given generators and relator.
@@ -285,22 +366,22 @@ def numericalgrowthrate(generators=None,relator=None,verbose=False,cleanup=True,
     return largestrealeigenvalue(automatatransitionmatrix(generators,relator,verbose,cleanup,**kwargs))
 
 
-def automatatransitionmatrix(generators=None,relator=None,verbose=False,cleanup=True,**kwargs):
+def automatatransitionmatrix(generators=None,relators=None,verbose=False,cleanup=True,**kwargs):
     """
-    Return (transpose of the) transition matrix of the shortlex automata for one relator group with given generators and relator.
+    Return (transpose of the) transition matrix of the shortlex automata for group with given generators and relators.
     'generators' is list of letters, closed under case change. Ordering defines lexicographic order.
-    'relator' is a string whose characters all belong to 'generators'. 
+    'relators' is a list of words in the generators.
     If 'cleanup=True' then delete all the files created for/by kbmag.
-    if 'inputwafile' is specified then generators and relators are ignored and the transition table is read directly from an existing file. Otherwise such a .wa file is created by running autgroup from kbmag.
+    if 'inputfile' is specified then generators and relators are ignored and the transition table is read directly from an existing file. Otherwise such a .wa file is created by running autgroup from kbmag.
     """
-    if 'inputwafile' in kwargs:
-        f=open(kwargs['inputwafile'],'r')
+    if 'inputfile' in kwargs:
+        f=open(kwargs['inputfile'],'r')
     else:
         if 'filename' in kwargs:
             thefilename=kwargs['filename']
         else:
-            thefilename="OneRelatorGroup-"+relator
-        writetokbmagfile(thefilename,generators,[relator])
+            thefilename="MyAutomaticGroup"
+        writetokbmagfile(thefilename,generators,relators)
         if verbose:
             autrun=subprocess.call(['autgroup','-v',thefilename])
         else:
@@ -381,11 +462,13 @@ def automatatransitionmatrix(generators=None,relator=None,verbose=False,cleanup=
             else:
                 tmatrow.append(0)
         tmat.append(tmatrow)
-    if cleanup and not 'inputwafile' in kwargs:
+    if cleanup and not 'inputfile' in kwargs:
         files = glob.glob('./'+thefilename+"*")
         for file in files:
             os.remove(file)
     return tmat
+
+
 
 def smallpole(num,denom,force=False):
     droots=np.roots(denom)

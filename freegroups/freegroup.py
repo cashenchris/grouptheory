@@ -132,14 +132,14 @@ class FGFreeGroup(FPGroup):
     def word__hash__(self,w):
         return tuple(w.letters).__hash__()
 
-    def randomcommutator(F,length,stopafter=10000):
-        rndwd = F.randomword(length)
+    def randomcommutator(self,length,stopafter=10000):
+        rndwd = self.randomword(length)
         for n in range(stopafter):
             if ishomologicallytrivial(rndwd):
                 #print('Found commutator on '+str(n)+'th try.')
                 return rndwd
             else:
-                rndwd = F.randomword(length)
+                rndwd = self.randomword(length)
         #print('Failed to find commutator.')
         return []
 

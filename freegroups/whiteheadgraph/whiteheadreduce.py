@@ -298,6 +298,8 @@ def whitehead_minimal_representative(inputword):
         return resutlword
 
 
+    
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

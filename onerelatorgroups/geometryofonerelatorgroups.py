@@ -12,8 +12,8 @@ import os
 from collections import deque
 import grouptheory.freegroups.enumeratefreegroupwords as enum
 import glob
-import subprocess32
-
+#import subprocess32
+import subprocess
 
 # One of the checks that certify_hyperbolicity does is to use the walrus package in GAP. The GAP startup takes a while. If multiple checks are to be run it is faster to spawn GAP only once and reuse it as follows:
 # words = list of words in free group of rank r, each defining a 1=relator quotient
@@ -160,11 +160,12 @@ def checkhyperbolicitywithwalrus(theword,theparameter='1/100',gap=None,gapfreegr
     """
     Check hyperbolicity of the one relator group with relator defined by theword using the walrus package in GAP.
 
-    Input 'gap' should be a pexpect process of GAP with walrus loaded, a free group defined, ready for input. If None, process will be spawned.
+    Input 'gap' should be a pexpect process of GAP with walrus loaded, a free group defined, ready for input. If None, process will be spawned. Spawning takes time, so if this function will be run more than once is is better to spawn one gap process and reuse it for each function call. 
     """ 
     if gap is None:
         gap=spawngapforwalrus(max(abs(x) for x in theword),gapfreegroupname=gapfreegroupname,gapprompt=gapprompt,pathtogap=pathtogap)
-    gap.send('IsHyperbolic(PregroupPresentationFromFp('+gapfreegroupname+',[],['+converttogapword(theword,gapfreegroupname)+']),'+theparameter+');\r')
+    walrusstring='IsHyperbolic(PregroupPresentationFromFp('+gapfreegroupname+',[],['+converttogapword(theword,gapfreegroupname)+']),'+theparameter+');'
+    gap.sendline(walrusstring)
     gap.expect(gapprompt)
     output=gap.before
     if 'true' in output:
@@ -172,7 +173,7 @@ def checkhyperbolicitywithwalrus(theword,theparameter='1/100',gap=None,gapfreegr
     elif 'fail' in output:
         result=False
     else:
-        raise ValueError(output)
+        raise ValueError("Did not find 'true' or 'fail' in output:",output)
     if fulloutput:
         return result,output
     else:
@@ -184,13 +185,18 @@ def spawngapforwalrus(rank,gapfreegroupname='f',gapprompt='gap>',pathtogap=None)
     """
     # Sometimes pexpect can find gap on its own. If not, specify the full path to gap.
     if pathtogap is None:
-        gap=pexpect.spawn('gap -b')
+        gap=pexpect.spawn('gap -b', encoding='utf-8')
     else:
-        gap=pexpect.spawn(pathtogap+' -b')
+        gap=pexpect.spawn(pathtogap+' -b',encoding='utf-8')
     gap.expect(gapprompt)
-    gap.send('LoadPackage("walrus");;\r')
+    gap.sendline('walrusloaded:=LoadPackage("walrus");')
     gap.expect(gapprompt)
-    gap.send(gapfreegroupname+':=FreeGroup('+str(rank)+');;\r')
+    gap.sendline('walrusloaded;')
+    gap.expect(gapprompt)
+    output=gap.before
+    if not 'true' in output:
+        raise ValueError("Unable to load package 'walrus' in this version of gap.")
+    gap.sendline(gapfreegroupname+':=FreeGroup('+str(rank)+');;')
     gap.expect(gapprompt)
     return gap
 
@@ -250,8 +256,10 @@ def girth(relator,verbose=False,**kwargs):
         timeout=10 # default timeout 10s       
     if not os.path.isfile(thefilename+'.diff1'):
         try:
-            subprocess32.run(['autgroup','-silent',thefilename],check=True,timeout=timeout)
-        except (subprocess32.TimeoutExpired, subprocess32.CalledProcessError) as e:
+            #subprocess32.run(['autgroup','-silent',thefilename],check=True,timeout=timeout)
+            subprocess.run(['autgroup','-silent',thefilename],check=True,timeout=timeout)
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+            #except (subprocess32.TimeoutExpired, subprocess32.CalledProcessError) as e:
             if cleanup:
                 files = glob.glob('./'+thefilename+"*")
                 for file in files:

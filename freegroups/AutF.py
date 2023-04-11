@@ -342,7 +342,7 @@ def WhiteheadAutomorphisms(F,allow_inner=False,both_kinds=False):
 
     By default only yields non-inner Whitehead automorphisms of the second kind.
     """
-    letters= range(1,1+F.rank)+range(-F.rank,0)
+    letters= [x for x in range(1,1+F.rank)]+[x for x in range(-F.rank,0)]
     if both_kinds:
         inversionlist=[1 for i in range(F.rank)] # no generator inversions, so permutation must be nontrivial
         permutationsofgenerators=itertools.permutations([x for x in range(1,1+F.rank)])
