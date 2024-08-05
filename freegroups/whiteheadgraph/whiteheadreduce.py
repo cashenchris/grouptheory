@@ -288,7 +288,7 @@ def whitehead_minimal_representative(inputword):
     Attempts to give return value of same type as input, either string, list of nonzero integers, or word object.
     """
     F,w=fg.parseinputword(inputword)
-    results=whitehead_minimal(F,[w],None,True,False,True)
+    results=whitehead_minimal(F,[w],extrawordlist=None,simplified=False,verbose=False,blind=True)
     resutlword=results['wordlist'][0]
     if hasattr(inputword,'isalpha'):
         return resutlword()
