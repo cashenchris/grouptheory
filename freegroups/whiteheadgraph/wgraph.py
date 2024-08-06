@@ -192,8 +192,8 @@ freegroup.FGFreeGroup.simplify_wordlist=simplify_wordlist
 
 def blind_simplify_wordlist(F,wordlist):
     """
-    Return a minimal list of elements generating maximal cyclic subgroup such that every word in wordlist is conjugate into one of the subgroups.
-    The difference between this and simplifyWordlist is that we do not track the correspondence between words in the input and the output.
+    Return a minimal list of elements generating maximal cyclic subgroups such that every word in wordlist is conjugate into one of the subgroups.
+    The difference between this and  simplify_wordlist is that we do not track the correspondence between words in the input and the output.
     """
     Abelianizations=dict()
     for w in wordlist:

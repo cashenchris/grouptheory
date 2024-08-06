@@ -156,6 +156,7 @@ def is_cyclically_pinched(relator,reportwords=False,reportpowers=False):
 
 
 
+
 def checkhyperbolicitywithwalrus(theword,theparameter='1/100',gap=None,gapfreegroupname='f',gapprompt='gap>',fulloutput=False,pathtogap=None):
     """
     Check hyperbolicity of the one relator group with relator defined by theword using the walrus package in GAP.

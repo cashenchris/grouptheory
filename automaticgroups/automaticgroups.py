@@ -46,7 +46,7 @@ import random
 
 
 class groupelement(object):
-    """
+"""
     Defines an element in an automatric group defined in the kbmag file 'thefilename'.
     Element represented by self.string which is shortlex minimal representation of that group element as determined by the automatic structure.
 

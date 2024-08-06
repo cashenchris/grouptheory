@@ -193,7 +193,7 @@ def whitehead_minimal(F,wordlist,extrawordlist=None,simplified=False,verbose=Fal
     """
     Make wordlist Whitehead minimal.
 
-    simplied=True is wordlist is already simplified, don't try to resimplify
+    simplied=True if wordlist is already simplified, don't try to resimplify
 
     blind=True to get back just the minimal wordlist and not the minimizing automorphism and its inverse
 
@@ -303,3 +303,5 @@ def whitehead_minimal_representative(inputword):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
+
+    
