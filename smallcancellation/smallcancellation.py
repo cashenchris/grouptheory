@@ -5,7 +5,7 @@ import itertools
 
 # relatorlist returned by parseinputwords as list of lists of nonzero integers 
 # segment=(r,v,e,l) means take the reltor at index r in relatorlist, subword starting at vertex v, direction e +1 or -1, and length l 
-
+# corner is a pair of segments such that the first two entries agree, the directions are oppsoite, and the lengths sum to at most the length of the corresponding relator
 
 
 
@@ -55,12 +55,12 @@ def smallcancellation(relatorlist,theCprimebound=None,noparse=False):
     True
     >>> smallcancellation(['ababccbAbaBCCB']) # C5-T4 
     True
-    >>> smallcancellation(['cacbcbcbcabacbcaba']) # C4-T6
-    True
+    >>> smallcancellation(['cacbcbcbcabacbcaba']) # C4-T4
+    False
     >>> smallcancellation([[1,2,-1,-2]]) # C4-T4
     False
-    >>> smallcancellation([[1,2,1,2,2,1,2,2,2]]) # C3-Tinf
-    True
+    >>> smallcancellation([[1,2,1,2,2,1,2,2,2]]) # C3-T4
+    False
     """
     if noparse:
         rels=relatorlist
@@ -77,7 +77,7 @@ def smallcancellation(relatorlist,theCprimebound=None,noparse=False):
         return False
 
     
-def T(relator_list, precomputed_piecedict=None, noparse=False, precomputed_link_graph=None,piece_up_to_automorphism=True):
+def T(relator_list, precomputed_piecedict=None, noparse=False, precomputed_link_graph=None,piece_up_to_automorphism=True, verbose=False):
     """
     Return the minimum degree of an essential interior vertex in a reduced van Kampen diagram. 
 
@@ -119,8 +119,10 @@ def T(relator_list, precomputed_piecedict=None, noparse=False, precomputed_link_
         the_link_graph=corner_graph(rels,unit_piecesegments(thepiecesegments),piece_up_to_automorphism=piece_up_to_automorphism)
     else:
         the_link_graph=precomputed_link_graph
-    cyclelength= shortest_cycle_length(the_link_graph,immersed=True)
-    return cyclelength
+    if verbose:
+        return shortest_cycle(the_link_graph,immersed=True)
+    else:
+        return shortest_cycle_length(the_link_graph,immersed=True)
 
 def Cprimebound(relator_list, precomputed_piecedict=None, noparse=False,piece_up_to_automorphism=True):
     return Cprime_bound(relator_list, precomputed_piecedict=None, noparse=False,piece_up_to_automorphism=True)
@@ -792,10 +794,10 @@ def shortest_cycle_length(inputgraph,at_vertex=None, first_edge=None, immersed=F
     G=inputgraph.copy()
     if first_edge is not None:
         theedges=[first_edge,]
-    elif at_vertex is None:
-        theedges=[e for e in G.edges()]
-    else:
+    elif at_vertex is not None:
         theedges=[e for e in G.edges(at_vertex)]
+    else:
+        theedges=[e for e in G.edges()]
     shortestcyclelength=float('inf')
     for e in theedges:
         if weight is None:
@@ -834,6 +836,87 @@ def shortest_cycle_length(inputgraph,at_vertex=None, first_edge=None, immersed=F
         shortestcyclelength=min(shortestcyclelength,shortestcycleusing_e)
     return shortestcyclelength
 
+      
+
+def shortest_cycle(inputgraph,at_vertex=None, first_edge=None, immersed=False,weight=None):
+    """
+    Return a pair (L,C) where C is a shortest directed, weighed cycle in the graph, and L is its length, or (float('inf'),None) if no such cycle exists.
+    If weight=string (typically string='weight')  is given then use edge attribte string as edge lengths. If weigh=None then all edges have length 1.
+
+    If one of at_vertex = v or first_edge=e then give the shortest cycle that either starts at v, or has first edge e, respectively. 
+
+    If immersed=True do not allow cycles that have edge (u,v) followed by edge (v,u). If, in addition, at_vertex = v or first_edge=e, then it is possible that the shortest cycle is not simple. Eg, if e is the bar of the barbell graph then the shortest immersed cycle starting with e is of the form e + loop + e backwards + loop. 
+    If immersed=1 and at_vertex = v or first_edge=e then reuqire loops to be immersed except possibly at the initial vertex.
+    """
+    shortestcyclesofar=None
+    shortestcyclesofarlength=float('inf')
+    G=inputgraph.copy()
+    if first_edge is not None:
+        theedges=[first_edge,]
+    elif at_vertex is not None:
+        theedges=[e for e in G.edges(at_vertex)]
+    else:
+        theedges=[e for e in G.edges()]
+    for e in theedges:
+        if weight is None:
+            first_edge_weight=1
+        else:
+            first_edge_weight=G[e[0]][e[1]][weight]
+        G.remove_edge(*e)
+        if immersed:
+            reverse_edge_is_present=False
+            if (e[1],e[0]) in G.edges():
+                reverse_edge_is_present=True
+                if weight is None:
+                    reverse_edge_weight=1
+                else:
+                    reverse_edge_weight=G[e[1]][e[0]][weight]
+                G.remove_edge(e[1],e[0])
+        try:
+            shortest_e_path=nx.shortest_path(G,e[1],e[0],weight=weight) 
+        except nx.NetworkXNoPath:
+            shortest_e_path=None
+            shortest_e_path_length=float('inf')
+        if shortest_e_path is None:
+            shortest_simple_cycle_using_e=None
+            shortest_simple_cycle_using_e_length=float('inf')
+        else:
+            shortest_simple_cycle_using_e=[e[0],]+shortest_e_path
+            if weight is None:
+                shortest_simple_cycle_using_e_length=len(shortest_simple_cycle_using_e)-1
+            else:
+                shortest_simple_cycle_using_e_length=sum(G[shortest_simple_cycle_using_e[i]][shortest_simple_cycle_using_e[i+1]][weight] for i in range(len(shortest_simple_cycle_using_e)-1))
+        if reverse_edge_is_present: # then also consider loops that start with e, loop, then do e backwards and loop. 
+            shortest_1_loop_length,shortest_1_loop=shortest_cycle(G,at_vertex=e[1],immersed=1,weight=weight)
+            if immersed is True:
+                shortest_0_loop_length,shortest_0_loop=shortest_cycle(G,at_vertex=e[0],immersed=1,weight=weight)
+            else:
+                shortest_0_loop_length,shortest_0_loop=0,[e[0],]
+            if shortest_1_loop is not None and shortest_0_loop is not None:
+                shortestcycleusing_ebar=[e[0],]+shortest_1_loop+shortest_0_loop
+                if weight is None:
+                    shortestcycleusing_ebar_length=len(shortestcycleusing_ebar)-1
+                else:
+                    shortestcycleusing_ebar_length=sum(G[shortestcycleusing_ebar[i]][shortestcycleusing_ebar[i+1]][weight] for i in range(len(shortestcycleusing_ebar)-1))
+            else:
+                shortestcycleusing_ebar=None
+                shortestcycleusing_ebar_length=float('inf')
+            if weight is None:
+                G.add_edge(e[1],e[0])
+            else:
+                G.add_edge(e[1],e[0],weight=reverse_edge_weight)
+        else:
+            shortestcycleusing_ebar,shortestcycleusing_ebar_length=None,float('inf')
+        if shortest_simple_cycle_using_e is None and shortestcycleusing_ebar is None:
+            shortestcycleusing_e=None
+            shortestcycleusing_e_length=float('inf')
+        elif shortest_simple_cycle_using_e_length<= shortestcycleusing_ebar_length:
+            shortestcycleusing_e,shortestcycleusing_e_length=shortest_simple_cycle_using_e,shortest_simple_cycle_using_e_length
+        else:
+            shortestcycleusing_e,shortestcycleusing_e_length=shortestcycleusing_ebar,shortestcycleusing_ebar_length
+        if shortestcycleusing_e_length<shortestcyclesofarlength:
+            shortestcyclesofar,shortestcyclesofarlength=shortestcycleusing_e,shortestcycleusing_e_length
+    return shortestcyclesofarlength, shortestcyclesofar
 
    
 def common_prefix_length(stringone,stringtwo):
