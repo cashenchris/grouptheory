@@ -154,13 +154,13 @@ def Cprime_bound(relator_list, precomputed_piecedict=None, noparse=False,piece_u
     thepiecesegments=piecesegments(rels,precomputed_piecedict=thepiecedict)
     return max((Fraction(l,len(rels[r])) for (r,v,e,l) in  thepiecesegments),default=0)
 
-def C(relator_list,quit_at=float('inf'),piece_up_to_automorphism=True,precomputed_piecedict=None,noparse=False):
+def C(relator_list,quit_at=float('inf'),piece_up_to_automorphism=True,precomputed_piecedict=None,noparse=False,verbose=False):
     """
     Find the minimum number p such that there exists some cyclic permutation of some relator that can be expressed as a freely reduced product of p pieces.
 
     If quit_at=q is specified the algorithm will stop and return q once it is determined that p>=q.
 
-    If piece_up_to_automorphism=True then a word only counts as a pieces if it occurs in places in the relator list that are distinct up to automorphism. This means that copies of the root word in a relation that is a proper power do not yield pieces. 
+    If piece_up_to_automorphism=True then a word only counts as a piece if it occurs in places in the relator list that are distinct up to automorphism. This means that copies of the root word in a relation that is a proper power do not yield pieces.
 
     >>> C(['axB','bxC','cxD','dxE','exF','fxG','gxA'])
     3
@@ -181,11 +181,20 @@ def C(relator_list,quit_at=float('inf'),piece_up_to_automorphism=True,precompute
         thepiecedict=piecedict(rels,piece_up_to_automorphism=piece_up_to_automorphism)
     else:
         thepiecedict=precomputed_piecedict
-    minrelatorpiecelength=float('inf')
-    for relator_index in range(len(rels)):
-        thisrelatorpiecelength=relator_piece_length(rels,relator_index,thepiecedict)
-        minrelatorpiecelength=min(minrelatorpiecelength,thisrelatorpiecelength)
-    return minrelatorpiecelength
+    relator_piece_decompositions=[relator_piece_decomposition(rels,relator_index,thepiecedict)  for relator_index in range(len(rels))]
+    relator_piece_lengths=[]
+    for D in relator_piece_decompositions:
+        if D is None:
+            relator_piece_lengths.append(float('inf'))
+        else:
+            relator_piece_lengths.append(len(D))
+    min_decomp_length=min(relator_piece_lengths)
+    if verbose:
+        min_decomp_index=relator_piece_lengths.index(min_decomp_length)
+        return min_decomp_length,relator_piece_decompositions[min_decomp_index]
+    else:
+        return min_decomp_length
+
 
 def segment_piece_graph(rels, thesegment, thepiecedict):
     (relator_index,startvertex,direction,segmentlength)=thesegment
@@ -214,21 +223,21 @@ def segment_piece_graph(rels, thesegment, thepiecedict):
         if direction==1:
             if wrap == piecewrap:
                 if startvertex<=piecestart and pieceend<=endvertex:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
             elif wrap and not piecewrap:
                 if startvertex<=piecestart:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
                 elif pieceend<=endvertex-relatorlength:
-                    G.add_edge(piecestart+relatorlength,pieceend+relatorlength)
+                    G.add_edge(piecestart+relatorlength,pieceend+relatorlength,label=piece)
         else: #direction == -1
             if wrap == piecewrap:
                 if piecestart<=startvertex and endvertex<=pieceend:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
             elif wrap and not piecewrap:
                 if piecestart<=startvertex:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
                 elif pieceend>=endvertex+relatorlength:
-                    G.add_edge(piecestart-relatorlength,pieceend-relatorlength)
+                    G.add_edge(piecestart-relatorlength,pieceend-relatorlength,label=piece)
     return G
 
 def segment_piece_length(rels,thesegment,thepiecedict):
@@ -244,6 +253,22 @@ def segment_piece_length(rels,thesegment,thepiecedict):
         p=float('inf')
     return p
 
+def segment_piece_decomposition(rels,thesegment,thepiecedict):
+    """
+    Return a shortest decomposition of the given segment as a concatenation of pieces.
+    """
+    if thesegment[3]==0:
+        return []
+    (relator_index,startvertex,direction,segmentlength)=thesegment
+    relatorlength=len(rels[relator_index])
+    endvertex=(thesegment[1]+direction*segmentlength)
+    G=segment_piece_graph(rels, thesegment, thepiecedict)
+    try:
+        p=nx.shortest_path(G,startvertex,endvertex)
+    except nx.NetworkXNoPath:
+        return None
+    return [G[p[i]][p[i+1]]['label'] for i in range(len(p)-1)]
+
 def relator_piece_length(rels,relator_index,thepiecedict):
     relator_length=len(rels[relator_index])
     bestpiecelength=float('inf')
@@ -251,6 +276,22 @@ def relator_piece_length(rels,relator_index,thepiecedict):
         thispermutationpiecelength=segment_piece_length(rels,(relator_index,startvertex,1,relator_length),thepiecedict)
         bestpiecelength=min(bestpiecelength,thispermutationpiecelength)
     return bestpiecelength
+
+def relator_piece_decomposition(rels,relator_index,thepiecedict):
+    """
+    Return a shortest decomposition of (a cyclic conjugate of) the given relator as a concatentation of pieces.
+    """
+    relator_length=len(rels[relator_index])
+    piece_decomposition_by_starting_index=[]
+    for startvertex in range(relator_length):
+        piece_decomposition_by_starting_index.append(segment_piece_decomposition(rels,(relator_index,startvertex,1,relator_length),thepiecedict))
+    min_piece_length=min(len(d) for d in piece_decomposition_by_starting_index)
+    for i in range(len(piece_decomposition_by_starting_index)):
+        if len(piece_decomposition_by_starting_index[i])==min_piece_length:
+            break
+    else:
+        raise IndexError
+    return piece_decomposition_by_starting_index[i]
             
 def corner_remainder_segment(rels,corner,thepiecedict):
     """
@@ -344,7 +385,7 @@ def unit_piecesegments(piecesegments):
     
 def successor_pieces(rels,thepiecesegments,thesegment):
     """
-    Given a segment, yield all piecesegments that begin where the given segment ends. 
+    Given a segment, yield all piecesegments that begin where the given segment ends, shortest first.
     """
     (r,v,e,l)=thesegment
     endvertex=(v+e*l)%len(rels[r])
