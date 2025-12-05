@@ -2,16 +2,21 @@ import networkx as nx
 import math
 from fractions import Fraction
 import itertools
+import functools
 
 
 # Input relators as either list of alphabetic strings or list of lists of nonzero integers. For alphabetic strings, lower case letters a-z represent generators 1-26 of a free group, and change of case denotes inversion, A=a^-1, B=b^-1 etc. For list of integers, positive integers represent generators and negative integers represent their inverses. For example, [[1,2,-1,-2]] and ['abAB'] both represent lists of relators with one element that is the commutator of the first two generators.
 
-# relatorlist returned by parseinputwords as list of lists of nonzero integers 
+# relatorlist returned by parseinputwords as list of lists of nonzero integers
+
 # segment=(r,v,e,l) means take the reltor at index r in relatorlist, subword starting at vertex v, direction e +1 or -1, and length l.
-# Vertex v means the place between index v and index v-1. If direction is +1 then the letter at vertex v is contained at index v. If direction is -1 then the letter at vertex v is the inverse of the letter at index v-1.  
+
+# Vertex v means the place between index v-1 and index v. If direction is +1 then the letter at vertex v is contained at index v. If direction is -1 then the letter at vertex v is the inverse of the letter at index v-1.
+
 # the subword of a segment is the tuple of nonzero integers that is the subword of a relator corresponding to the given segment. Example: relator_list=[(1,2,3)] here are a few examples of segment -> subword: (0,0,1,2) -> (1,2), (0,2,-1,2)->(-2,-1), (0,2,1,2)->(3,1)
 
 # a piece is a word that occurs as the subword corresponding to distinct segments
+
 # a piece-segment is a segment whose subword is a piece
 
 # a corner is a pair of piece-segments with the same relator, same vertex, opposite directions, and whose lengths sum to at most the length of the relator. 
@@ -91,8 +96,7 @@ def T(relator_list, precomputed_piecedict=None, noparse=False, precomputed_corne
         G=unweighted_corner_graph(rels,unit_piecesegments(thepiecesegments),piece_up_to_automorphism=piece_up_to_automorphism)
     else:
         G=precomputed_corner_graph
-    cyclelength= shortest_cycle_length(G,immersed=True)
-    return cyclelength
+    return shortest_cycle_length(G,nobigon=True)
 
 def Cprime_bound(relator_list, precomputed_piecedict=None, noparse=False,piece_up_to_automorphism=True):
     """
@@ -121,7 +125,7 @@ def Cprime_bound(relator_list, precomputed_piecedict=None, noparse=False,piece_u
     thepiecesegments=piecesegments(rels,precomputed_piecedict=thepiecedict)
     return max((Fraction(l,len(rels[r])) for (r,v,e,l) in  thepiecesegments),default=0)
 
-def C(relator_list,quit_at=float('inf'),piece_up_to_automorphism=True,precomputed_piecedict=None,noparse=False):
+def C(relator_list,quit_at=float('inf'),piece_up_to_automorphism=True,precomputed_piecedict=None,noparse=False, verbose=False):
     """
     Find the minimum number p such that there exists some cyclic permutation of some relator that can be expressed as a freely reduced product of p pieces.
 
@@ -148,11 +152,24 @@ def C(relator_list,quit_at=float('inf'),piece_up_to_automorphism=True,precompute
         thepiecedict=piecedict(rels,piece_up_to_automorphism=piece_up_to_automorphism)
     else:
         thepiecedict=precomputed_piecedict
-    minrelatorpiecelength=float('inf')
-    for relator_index in range(len(rels)):
-        thisrelatorpiecelength=relator_piece_length(rels,relator_index,thepiecedict)
-        minrelatorpiecelength=min(minrelatorpiecelength,thisrelatorpiecelength)
-    return minrelatorpiecelength
+    relator_piece_decompositions=[relator_piece_decomposition(rels,relator_index,thepiecedict)  for relator_index in range(len(rels))]
+    relator_piece_lengths=[]
+    for D in relator_piece_decompositions:
+        if D is None:
+            relator_piece_lengths.append(float('inf'))
+        else:
+            relator_piece_lengths.append(len(D))
+    min_decomp_length=min(relator_piece_lengths)
+    if verbose:
+        min_decomp_index=relator_piece_lengths.index(min_decomp_length)
+        decompsegments=relator_piece_decompositions[min_decomp_index]
+        outputstring=intlisttostring(rels[min_decomp_index])+'~'
+        for i in range(len(decompsegments)-1):
+            outputstring+=intlisttostring(subword(rels,decompsegments[i]))+'+'
+        outputstring+=intlisttostring(subword(rels,decompsegments[-1]))
+        return min_decomp_length,outputstring
+    else:
+        return min_decomp_length
 
 def piecedict(rels,piece_up_to_automorphism=True):
     """
@@ -181,7 +198,7 @@ def piecedict(rels,piece_up_to_automorphism=True):
 
 def segment_piece_length(rels,thesegment,thepiecedict):
     """
-    Find the piece-length of the given segment. 
+    Return the length of a shortest decomposition of the given segment as a concatenation of pieces.
     """
     if thesegment[3]==0:
         return 0
@@ -194,6 +211,22 @@ def segment_piece_length(rels,thesegment,thepiecedict):
     except nx.NetworkXNoPath:
         p=float('inf')
     return p
+
+def segment_piece_decomposition(rels,thesegment,thepiecedict):
+    """
+    Return a shortest decomposition of the given segment as a concatenation of pieces.
+    """
+    if thesegment[3]==0:
+        return []
+    (relator_index,startvertex,direction,segmentlength)=thesegment
+    relatorlength=len(rels[relator_index])
+    endvertex=(thesegment[1]+direction*segmentlength)
+    G=segment_piece_graph(rels, thesegment, thepiecedict)
+    try:
+        p=nx.shortest_path(G,startvertex,endvertex)
+    except nx.NetworkXNoPath:
+        return None
+    return [G[p[i]][p[i+1]]['label'] for i in range(len(p)-1)]
 
 def segment_piece_graph(rels, thesegment, thepiecedict):
     """
@@ -225,28 +258,28 @@ def segment_piece_graph(rels, thesegment, thepiecedict):
         if direction==1:
             if wrap == piecewrap:
                 if startvertex<=piecestart and pieceend<=endvertex:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
             elif wrap and not piecewrap:
                 if startvertex<=piecestart:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
                 elif pieceend<=endvertex-relatorlength:
-                    G.add_edge(piecestart+relatorlength,pieceend+relatorlength)
+                    G.add_edge(piecestart+relatorlength,pieceend+relatorlength,label=piece)
         else: #direction == -1
             if wrap == piecewrap:
                 if piecestart<=startvertex and endvertex<=pieceend:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
             elif wrap and not piecewrap:
                 if piecestart<=startvertex:
-                    G.add_edge(piecestart,pieceend)
+                    G.add_edge(piecestart,pieceend,label=piece)
                 elif pieceend>=endvertex+relatorlength:
-                    G.add_edge(piecestart-relatorlength,pieceend-relatorlength)
+                    G.add_edge(piecestart-relatorlength,pieceend-relatorlength,label=piece)
     return G
 
 
 
 def relator_piece_length(rels,relator_index,thepiecedict):
     """
-    Find the shortest expression of a cyclic permutation of the given relator as a concatentation of pieces. 
+    Find a shortest expression of a cyclic permutation of the given relator as a concatentation of pieces. 
     """
     relator_length=len(rels[relator_index])
     bestpiecelength=float('inf')
@@ -254,6 +287,26 @@ def relator_piece_length(rels,relator_index,thepiecedict):
         thispermutationpiecelength=segment_piece_length(rels,(relator_index,startvertex,1,relator_length),thepiecedict)
         bestpiecelength=min(bestpiecelength,thispermutationpiecelength)
     return bestpiecelength
+
+def relator_piece_decomposition(rels,relator_index,thepiecedict):
+    """
+    Return a shortest decomposition of (a cyclic conjugate of) the given relator as a concatentation of pieces.
+
+    Output is list of piece-segments whose concatenation is a cyclic permutation of the relator. 
+    """
+    relator_length=len(rels[relator_index])
+    piece_decomposition_by_starting_index=[]
+    piece_decomposition_by_starting_index_lengths=[]
+    for startvertex in range(relator_length):
+        D=segment_piece_decomposition(rels,(relator_index,startvertex,1,relator_length),thepiecedict)
+        piece_decomposition_by_starting_index.append(D)
+        if D is None:
+            piece_decomposition_by_starting_index_lengths.append(float('inf'))
+        else:
+            piece_decomposition_by_starting_index_lengths.append(len(D))
+    min_piece_length=min(piece_decomposition_by_starting_index_lengths)
+    min_length_index=piece_decomposition_by_starting_index_lengths.index(min_piece_length)
+    return piece_decomposition_by_starting_index[min_length_index]
             
 def corner_remainder_segment(rels,corner):
     """
@@ -346,40 +399,48 @@ def interior_corners(rels,thepiecesegments):
         for secondsegment in [secondsegment for secondsegment in successor_pieces(rels,thepiecesegments,firstsegment) if firstsegment[3]+secondsegment[3]<=relatorlength]:
             yield (reverse_segment(rels,firstsegment),secondsegment)
 
-def normalizedcornerangle(rels,corner,weights=None,precomputed_piecedict=None):
+def corner_angle_from_generator_weights(rels,corner,weights,precomputed_piecedict=None,skew=Fraction(1,2)):
     """
     Return the interior angle of the corner expressed in turns.
-    weights=tuple of integral weights of the group generators, or all zeros or None to be combinatorial metric.
+    weights is tuple of integral weights of the group generators
+    skew is Fraction between 0 and 1 determinig relative weight of first and second leg of the corner
     """
-    if  weights is None or all(x==0 for x in weights):
-        return combinatorialcornerangle(rels,[corner],precomputed_piecedict=precomputed_piecedict)
-    else:
-        leg0=weighted_word_length(subword(rels,corner[0]),weights)
-        leg1=weighted_word_length(subword(rels,corner[1]),weights)
-        remainder_segment=corner_remainder_segment(rels,corner)
-        restlength=weighted_word_length(subword(rels,remainder_segment),weights)
-        return Fraction(1,2)-Fraction(leg0+leg1,2*(leg0+leg1+restlength))
-   
-def combinatorialcornerangle(rels, cornersequence,precomputed_piecedict=None):
+    leg0=weighted_word_length(subword(rels,corner[0]),weights)
+    leg1=weighted_word_length(subword(rels,corner[1]),weights)
+    remainder_segment=corner_remainder_segment(rels,corner)
+    restlength=weighted_word_length(subword(rels,remainder_segment),weights)
+    return Fraction(1,2)-Fraction( skew*leg0+(1-skew)*leg1,leg0+leg1+restlength)
+
+def combinatorial_corner_angle(rels,corner,weights=None,precomputed_piecedict=None):
     """
-    Given a sequence of consecutive corners within a single relator, return lower bound on the angles of those corners obtained by assuming that the remainder of the relator is subdivided into the minimal number of pieces.
+    Given a corner, find the shortest piece decomposition of the relator that contains the two legs of the corner, and return the combinatorial angle of all corners of the relator with this decomposition. This gives a lower bound on the combinatorial angle of this corner when it appears on an interior face in a reduced van Kampen diagram.
+    """
+    return combinatorial_corner_angle_from_sequence(rels, [corner,],precomputed_piecedict=precomputed_piecedict)
+    
+def combinatorial_corner_angle_from_sequence(rels, cornersequence,precomputed_piecedict=None):
+    """
+    Given a sequence of consecutive corners within a single relator, think of this as a partial decomposition of the relator in to a concatenation of pieces, find the shortest extension of this partial decomposition to a full decomposition of the relator as a concataenation of pieces, and return the combinatorial angle of all corners of the relator with respect to this decompostiion. 
+
+    'Consecutive corners' means that the second leg of a given corner is equal to the reverse of the first leg of the next corner in the sequence. 
+
+    The sequence of corners is 'closed' if the last corner and the first corner are consecutive. 
     """
     assert(all(cornersequence[i+1][0]==reverse_segment(rels,cornersequence[i][1]) for i in range(len(cornersequence)-1))) # corners are consecutive
+    sequence_is_closed=bool(reverse_segment(rels,cornersequence[0][0])==cornersequence[-1][1])
     if precomputed_piecedict is None:
         thepiecedict=piecedict(rels)
     else:
         thepiecedict=precomputed_piecedict
-    r,v,d,l=cornersequence[-1][1]
-    complement_segment=(r,(v+d*l)%len(rels[r]),d,len(rels[r])-(cornersequence[0][0][3]+sum(cornersequence[i][1][3] for i in range(len(cornersequence)))))
-    if complement_segment[3]>=0: # complement has nonnegative length
+    if sequence_is_closed:
+        min_boundary_piece_length=len(cornersequence)
+        return Fraction(1,2)-Fraction(1,min_boundary_piece_length)
+    else: # sequence not closed. Find minimal decomostion of the complement. 
+        r,v,d,l=cornersequence[-1][1]
+        complement_segment=(r,(v+d*l)%len(rels[r]),d,len(rels[r])-(cornersequence[0][0][3]+sum(cornersequence[i][1][3] for i in range(len(cornersequence)))))
+        assert(complement_segment[3]>=0) # complement has nonnegative length
         min_boundary_piece_length=len(cornersequence)+1+segment_piece_length(rels,complement_segment,thepiecedict)
         return Fraction(1,2)-Fraction(1,min_boundary_piece_length)
-    else: # because its a sequence of corners, to specify the entire polygon we would have the first leg of the first corner and last leg of the last corner agree. Check if that is the case.
-        if -complement_segment[3]==cornersequence[0][0][3] and reverse_segment(rels,cornersequence[0][0])==cornersequence[-1][1]: # cornersequence is exactly the corner sequence of the closed face
-            min_boundary_piece_length=len(cornersequence)
-            return Fraction(1,2)-Fraction(1,min_boundary_piece_length)
-        else:
-            raise(ValueError)
+    
         
    
     
@@ -415,18 +476,13 @@ def unweighted_corner_graph(rels,somepiecesegments,piece_up_to_automorphism=True
                 G.add_edge(u,v)
     return G
 
-def weight_corner_graph(rels,precomputed_corner_graph,weights=None,precomputed_piecedict=None):
+def weight_corner_graph(rels,precomputed_corner_graph,corner_angle_function,precomputed_piecedict=None):
     """
-    Given a corner graph, compute the interior angle of each corner according to specified measure and write it in node attribute 'weight'. Also write to each edge attribute 'weight' that is the average of its two node weights. 
+    Given a corner graph and an angle_function that takes input a corner and outputs an angle, compute the interior angle of each corner and write it in node attribute 'weight'. Also write to each edge attribute 'weight' that is the average of its two node weights. 
     """
-    combinatorial=bool(weights is None or all(x==0 for x in weights))
     G=precomputed_corner_graph
-    if combinatorial:
-        for corner in G:
-            G.nodes[corner]['weight']=normalizedcornerangle(rels,corner,precomputed_piecedict=precomputed_piecedict)
-    else:
-        for corner in G:
-            G.nodes[corner]['weight']=normalizedcornerangle(rels,corner,weights=weights)
+    for corner in G:
+        G.nodes[corner]['weight']=corner_angle_function(corner)
     for (u,v) in G.edges:
         G.edges[u,v]['weight'] = Fraction(G.nodes[u].get('weight')+G.nodes[v].get('weight'),2)
     return 
@@ -541,12 +597,11 @@ def restricted_light_loops(G,possiblefirstcornerleg1=None,possiblefirstcornerleg
                 if len(path)>2: # because we only are interested in essential vertices
                     yield path[1:]+path[0:1] # move what was supposed to be possible_end_vertex to the end
 
-def basic_small_cancellation_check(relator_list,weights=None,precomputed_piecedict=None,precomputed_corner_graph=None,noparse=False,verbose=False):
+def negative_curvature_check(relator_list,angle_function,precomputed_piecedict=None,precomputed_corner_graph=None,noparse=False,verbose=False):
     """
-    Check if every interior vertex of every reduced diagram has negative curvature with the specified measure. 
+    Check if every interior vertex of every reduced diagram has negative curvature.
     If verbose and False, also return the curvature of the first non-negatively curved vertex found, and the loop in the corner graph describing that vertex.
     """
-    combinatorial=bool(weights is None or all(x==0 for x in weights))
     if noparse:
         rels=relator_list
     else:
@@ -568,7 +623,7 @@ def basic_small_cancellation_check(relator_list,weights=None,precomputed_piecedi
         G=precomputed_corner_graph
     if verbose:
         print("Computing angle structure") 
-    weight_corner_graph(rels,G,weights=weights,precomputed_piecedict=thepiecedict)
+    weight_corner_graph(rels,G,angle_function,precomputed_piecedict=thepiecedict)
     ll=light_loops(G,maxweight=1)
     for loop in ll:
         if verbose:
@@ -578,13 +633,12 @@ def basic_small_cancellation_check(relator_list,weights=None,precomputed_piecedi
     else:
         return True
 
-def second_small_cancellation_check(relator_list,weights=None,precomputed_piecedict=None,precomputed_corner_graph=None, noparse=False,verbose=False,minimum_heavy_link_weight=Fraction(1,1),maximum_light_link_weight=Fraction(2,1)):
+def second_small_cancellation_check(relator_list,corner_angle_function=None,weights=None,combinatorial=False,precomputed_piecedict=None,precomputed_corner_graph=None, noparse=False,verbose=False,minimum_heavy_link_weight=Fraction(1,1),maximum_light_link_weight=Fraction(2,1), skew=Fraction(1,2)):
     """
     Decide if van Kampen diagrams over presentation with given relator_list have the property that with the given weights on the lengths of edges corresponding to each generator, all deep vertices in the diagram have average negative curvature. If yes, return True, and the group is hyperbolic. If algorithm fails then False is returned and hyperbolicity of the group is not determined. 
     
     Algorithm works by enumerating possible 2-neighborhoods of vertices in reduced van Kampen diagrams, computing cuvatures of central vertex and its neighbors, and, if central vertex is nonnegatively curved, taking donation from each of its negatively curved neighbors in the amount of curvature/degree. If the result is always negative then return True. Return false if a vertex is found that has nonnegative curvature and for which it is likely that a neighborhood can be found for which the neighboring vertices are not able to donate sufficient curvature to make the central vertex negatively curved. This can mean that either an explicit failing neighborhood has been found, or that ruling out such a neighborhood would take an excessively long time. This decision is controlled by parameters minimum_heavy_link_weight and maximum_light_link_weight. Must have 1<=minimum_heavy_link_weight<=maximum_light_link_weight. Smaller values lead to faster execution but potentially more false negative results. 
     """
-    combinatorial=bool(weights is None or all(x==0 for x in weights))
     # in the metric (noncombinatorial case) the corner angles can be computed initially and do not depend on the diagram. They are stored in the weighted corner graph G and only have to be looked up. In the combinatorial case, computing the angle of a corner in a diagram requires a decomposition of a face into pieces, not just  the two pieces at the corner.  In this case, the angle recorded in the corner graph is the lower bound obtained by assuming that the complement of the corner is decomposed into pieces as coarsely as possible. However, when we start enumerating links of neighboring vertices, this puts further constraints on the faces incident to the central vertex that can decrease its curvature. So the central vertex curvature can be recomputed several times in the computation.   
     if noparse:
         rels=relator_list
@@ -599,18 +653,20 @@ def second_small_cancellation_check(relator_list,weights=None,precomputed_pieced
     else:
         thepiecedict=precomputed_piecedict
     p,q=CT(rels,precomputed_piecedict=thepiecedict,noparse=True)
-    if p<3:
-        raise ValueError("This presentation is a C"+str(p)+" presentation. Algorithm requires C3.") 
+    if p<3: # when p=3 some of the partial diagram constructed in this algorithm may not actually be realizable, because we have not checked for triangles in the second shell. 
+        if verbose:
+            print("This presentation is a C"+str(p)+" presentation. Algorithm requires at least C3.")
+        return False
     if Fraction(1,p)+Fraction(1,q)<Fraction(1,2):
         if verbose:
             print("Presentation is hyperbolic C"+str(p)+"-T"+str(q)+".")
-        # return True    ########### for testing let's continue check
+        # here we should shortcircuit and return True, but for debug checking we continue
     elif Fraction(1,p)+Fraction(1,q)==Fraction(1,2):
         if verbose:
             print("Presentation is non-positively curved C"+str(p)+"-T"+str(q)+".")
     else:
          if verbose:
-            print("Presentation is C"+str(p)+"-T"+str(q)+".")
+            print("Presentation CT does not rule out positively curved vertices: C"+str(p)+"-T"+str(q)+".")
     thepiecesegments=piecesegments(rels,thepiecedict)
     if precomputed_corner_graph is None:
         if verbose:
@@ -618,14 +674,17 @@ def second_small_cancellation_check(relator_list,weights=None,precomputed_pieced
         G=unweighted_corner_graph(rels,thepiecesegments)
     else:
         G=precomputed_corner_graph
-    if verbose:
-        if combinatorial:
-            print("Computing angle structure with combinatorial metric.")
-        else:
-            print("Computing angle structure from generator weights "+str(weights)+".")
-    weight_corner_graph(rels,G,weights=weights,precomputed_piecedict=thepiecedict)
+    if corner_angle_function is not None:
+        CAF=corner_angle_function
+    elif combinatorial:
+        CAF=functools.partial(combinatorial_corner_angle,rels,weights=None,precomputed_piecedict=thepiecedict)
+    elif weights is not None:
+        CAF=functools.partial(corner_angle_from_generator_weights,rels,weights=weights,precomputed_piecedict=thepiecedict,skew=skew)
+    else:
+        CAF=functools.partial(corner_angle_from_generator_weights,rels,weights=[1 for i in range(max([max([abs(x) for x in rel]) for rel in rels]))], precomputed_piecedict=thepiecedict,skew=skew)
+    weight_corner_graph(rels,G,CAF,precomputed_piecedict=thepiecedict)
     minangle=min(G.nodes[v]['weight'] for v in G)
-    mindensity=min(Fraction(G.edges[e]['weight']+G.edges[f]['weight']+G.edges[g]['weight'],3) for e in G.edges() for f in G.out_edges(e[1]) for g in G.out_edges(f[1])) # this is a lower bound on path weight/path length for loops in G
+    mindensity=min(Fraction(G.edges[e]['weight']+G.edges[f]['weight']+G.edges[g]['weight']+G.edges[h]['weight'],4) for e in G.edges() for f in G.out_edges(e[1]) for g in G.out_edges(f[1]) for h in G.out_edges(g[1])) # calculate minimum of (1/4)(path weight) over paths of length 4. This is lower bound for denisty=total weght/length of closed loops. 
     if verbose:
         print("Smallest angle is "+str(minangle)+".")
         print("Lower bound on loop density is "+str(mindensity)+".")
@@ -633,19 +692,16 @@ def second_small_cancellation_check(relator_list,weights=None,precomputed_pieced
         raise ValueError('Corner graph has loops with nonpositive weight.') # Algorithm doesn't work with nonpositive densities. This can happen for some choices of nonpositive weights. Should not happen otherwise. 
     if verbose:
         print("Searching for nonnegative curvature.")
-    for centerlink in light_loops(G,maxweight=1):
+    for centerlink in light_loops(G,maxweight=1): # each possible centerlink describes link of vertex with nonnegative curvature
         centerweight=sum(G.nodes[v].get('weight') for v in centerlink)
         centercurvature=1-centerweight
-        if centercurvature>=len(centerlink)*mindensity: # can only expect asymptotically that neighbors donate -mindensity, so if this case is true the center is too positively curved for this algorithm to cancel it out via neighbor donations.
+        if centercurvature>=len(centerlink)*mindensity: # can only expect asymptotically that neighbors donate -mindensity, so if this test is true then the center is too positively curved for this algorithm to cancel it out via neighbor donations.
             if verbose:
                 return False,"link"+str(centerlink)+"has curvature "+str(centerurvature)+", too small to be balanced by neighbors."
             else:
                 return False
         if verbose:
-            if centercurvature==0:
-                print("Found link of curvature "+str(centercurvature)+". Soliciting donations.")
-            else:
-                print("Found link of curvature +"+str(centercurvature)+". Soliciting donations.")
+            print("Found link of curvature +"+str(centercurvature)+". Soliciting donations.")
         neighbors=[]
         # neighbors is a list whose entry at index i describes the neighborhood of the vertex opposite the central vertex along the arc common to corners i and i+1 of centerlink. 
         # entry is a dict:
@@ -667,7 +723,7 @@ def second_small_cancellation_check(relator_list,weights=None,precomputed_pieced
                     return 1-sum(G.nodes[corner]['weight'] for corner in centerlink)
                 elif len(neighbors)==len(centerlink): # links for all neighbors are chosen
                     for i in range(len(centerlink)):
-                        faceangles.append(combinatorialcornerangle(rels, [neighbors[i-1]['thisfirstlast'][1],centerlink[i],neighbors[i]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
+                        faceangles.append(combinatorial_corner_angle_from_sequence(rels, [neighbors[i-1]['thisfirstlast'][1],centerlink[i],neighbors[i]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
                     for i in range(len(centerlink)-1):
                         neighbors[i]['thisfirstlastangles']=(faceangles[i],faceangles[(i+1)%len(centerlink)])
                         if 'thislightlink' in neighbors[i] and neighbors[i]['thislightlink'] is not None:
@@ -688,15 +744,15 @@ def second_small_cancellation_check(relator_list,weights=None,precomputed_pieced
                 else: # links for some, but not all, neighbors have been chosen
                     # set new face angles around center vertex
                     # corner 0
-                    faceangles.append(combinatorialcornerangle(rels, [centerlink[0],neighbors[0]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
+                    faceangles.append(combinatorial_corner_angle_from_sequence(rels, [centerlink[0],neighbors[0]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
                     # remaining corners for which at least firstlast of link are chosen
                     for i in range(1,len(neighbors)):
-                        faceangles.append(combinatorialcornerangle(rels, [neighbors[i-1]['thisfirstlast'][1],centerlink[i],neighbors[i]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
+                        faceangles.append(combinatorial_corner_angle_from_sequence(rels, [neighbors[i-1]['thisfirstlast'][1],centerlink[i],neighbors[i]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
                     # first corner for which link has not been chosen, still gets some info from previous
-                    faceangles.append(combinatorialcornerangle(rels, [neighbors[-1]['thisfirstlast'][1],centerlink[len(neighbors)]],precomputed_piecedict=precomputed_piecedict))
+                    faceangles.append(combinatorial_corner_angle_from_sequence(rels, [neighbors[-1]['thisfirstlast'][1],centerlink[len(neighbors)]],precomputed_piecedict=precomputed_piecedict))
                     # rest of the corners
                     for i in range(1+len(neighbors),len(centerlink)):
-                        faceangles.append(combinatorialcornerangle(rels, [centerlink[i]],precomputed_piecedict=precomputed_piecedict))
+                        faceangles.append(combinatorial_corner_angle_from_sequence(rels, [centerlink[i]],precomputed_piecedict=precomputed_piecedict))
                     # set thisfirstlastangles and donation for neighbors whose firstlast is set
                     for i in range(len(neighbors)-1):
                         neighbors[i]['thisfirstlastangles']=(faceangles[i],faceangles[(i+1)%len(centerlink)])
@@ -719,36 +775,36 @@ def second_small_cancellation_check(relator_list,weights=None,precomputed_pieced
                         neighbors[-1]['donation']=-mindensity*(1-Fraction(1,neighbors[-1]['lightlinkcompletionweightlimit']+sum(neighbors[-1]['thisfirstlastangles']))) # heavy link donation
                 centerangle=sum(faceangles)
                 return 1-centerangle
-    
+            # end of recomputecurvature
+        # Iterate through the neighbors of the centeral vertex. For each of them we make a generator that yields links of that vertex that agrees with link of central vertex and with preceding neighbor. The activeneighbor is the one we are currently working on.
         activeneighbor=0
         while activeneighbor>=0:
             if len(neighbors)==activeneighbor or 'lightlinkgen' not in neighbors[activeneighbor]: # either there is nothing in this entry yet, or there is a choice of first/last outgoing arc, but no link completions
                 if len(neighbors)==activeneighbor: # no entry yet, create and populate the dict
                     firstcornerfirstleg=reverse_segment(rels,centerlink[activeneighbor][1])
                     lastcornersecondleg=reverse_segment(rels,centerlink[(activeneighbor+1)%len(centerlink)][0])
-                    if activeneighbor==0:
+                    if activeneighbor==0: # this is the first neighbor of the central vertex whose link we are trying to complete. Its first corner belongs to face with two sides already specified by centerlink[0][0] and centerlink[0][1]. firstcornerfirstleg is already computed. second leg can be any successor that is short enough with respect to two existing sides. 
                         firstboundarycomplementlength=len(rels[centerlink[0][0][0]])-centerlink[0][0][3]-centerlink[0][1][3]
+                        assert(firstboundarycomplementlength>0) # because p>2
                         possiblefirstcorners=((a,b) for (a,b) in G if a==firstcornerfirstleg and b[3]<=firstboundarycomplementlength)
-                    else:
+                    else: # not the first neighbor, so cell containing the first corner of this vertex link already has 3 of its faces decided by the centerlink and the last corner of the previous neighbor
                         firstboundarycomplementlength=len(rels[centerlink[activeneighbor][0][0]])-neighbors[activeneighbor-1]['thisfirstlast'][1][0][3]-centerlink[activeneighbor][0][3]-centerlink[activeneighbor][1][3]
-                        if firstboundarycomplementlength<0 or (firstboundarycomplementlength==0 and p>3):
-                            raise(ValueError)
-                        elif firstboundarycomplementlength==0: # triangular face potentially happens in a C(3) presentation
+                        assert(firstboundarycomplementlength>0 or (firstboundarycomplementlength==0 and p==3))
+                        if firstboundarycomplementlength==0: # triangular face potentially happens in a C(3) presentation
                             possiblefirstcorners=[(firstcornerfirstleg,reverse_segment(rels,neighbors[activeneighbor-1]['thisfirstlast'][1][0])),]
                         else:
                             possiblefirstcorners=((a,b) for (a,b) in G if a==firstcornerfirstleg and b[3]<=firstboundarycomplementlength)
-                    if activeneighbor==len(centerlink)-1:
+                    if activeneighbor==len(centerlink)-1: # this is the last neighbor of the central vertex. extra care here because the last corner of this link is influenced by the first corner of the link of neighbor 0.
                         lastboundarycomplementlength=len(rels[centerlink[0][0][0]])-centerlink[0][0][3]-centerlink[0][1][3]-neighbors[0]['thisfirstlast'][0][1][3]
-                        if lastboundarycomplementlength<0 or (lastboundarycomplementlength==0 and p>3):
-                            raise(ValueError)
-                        elif lastboundarycomplementlength==0:  # triangular face potentially happens in a C(3) presentation
+                        assert(lastboundarycomplementlength>0 or (lastboundarycomplementlength==0 and p==3))
+                        if lastboundarycomplementlength==0:  # triangular face potentially happens in a C(3) presentation
                             possiblelastcorners=[(reverse_segment(rels,neighbors[0]['thisfirstlast'][0][1]),lastcornersecondleg),]
                         else:
                             possiblelastcorners=((c,d) for (c,d) in G if d==lastcornersecondleg and c[3]<=lastboundarycomplementlength)
                     else:
                         lastboundarycomplementlength=len(rels[centerlink[(activeneighbor+1)%len(centerlink)][0][0]])-centerlink[(activeneighbor+1)%len(centerlink)][0][3]-centerlink[(activeneighbor+1)%len(centerlink)][1][3]
                         possiblelastcorners=((c,d) for (c,d) in G if d==lastcornersecondleg and c[3]<=lastboundarycomplementlength)
-                    firstlastgen=itertools.product(possiblefirstcorners,possiblelastcorners)
+                    firstlastgen=itertools.product(possiblefirstcorners,possiblelastcorners) 
                     thisfirstlast=next(firstlastgen) # If the presentation is C(2) there should be at least one such possibility, so should not get a StopIteration here.
                     neighbors.append({'thisfirstlast':thisfirstlast,'firstlastgen':firstlastgen})
                     if combinatorial:
@@ -995,14 +1051,16 @@ def shorter_string_piece_expressions(theword,thepieces,quit_at=float('inf')):
                
 def all_piece_expressions(theword,thepieces, as_cyclic_word=False, quit_at=float('inf')):
     """
-    Recursively yield lists of words of length at most quit_at whose elements are in thepieces and whose concatenation is either theword, or, when default as_cyclic_word=True, a cyclic permutation of theword. 
+    Recursively yield lists of words of length at most quit_at whose elements are in thepieces and whose concatenation is either theword, or, when as_cyclic_word=True, a cyclic permutation of theword. 
     When as_cyclic_word=True the yielded lists are normalized so that the first element of the list has a (possibly non-proper) suffix that agrees with a prefix of relator. 
 
-    >>> [ expr for expr in all_piece_expressions('aba',['aa','b'])]
+    >>> [ expr for expr in all_piece_expressions('aba',['aa','b'],as_cyclic_word=True)]
     [['aa', 'b']]
-    >>> sorted([ expr for expr in all_piece_expressions('aaba',['a','aa','b'])])
+    >>> [ expr for expr in all_piece_expressions('aba',['aa','b'],as_cyclic_word=False)]
+    []
+    >>> sorted([ expr for expr in all_piece_expressions('aaba',['a','aa','b'],as_cyclic_word=True)])
     [['a', 'a', 'b', 'a'], ['aa', 'a', 'b'], ['aa', 'b', 'a']]
-    >>> sorted([ expr for expr in all_piece_expressions('aaba',['a','aa','b'],quit_at=3)]) # only expressions of length <=3
+    >>> sorted([ expr for expr in all_piece_expressions('aaba',['a','aa','b'],as_cyclic_word=True,quit_at=3)]) # only expressions of length <=3
     [['aa', 'a', 'b'], ['aa', 'b', 'a']]
     """
     r=theword
@@ -1040,16 +1098,15 @@ def all_piece_expressions(theword,thepieces, as_cyclic_word=False, quit_at=float
 
  
 ########## Utility functions that are not particular to small cancellation
-
-def shortest_cycle_length(inputgraph,at_vertex=None, first_edge=None, immersed=False,weight=None):
+    
+def shortest_cycle_length(inputgraph,at_vertex=None, first_edge=None,weight=None,nobigon=False):
     """
     Return the length of the shortest directed cycle in the graph, or float('inf') if none exists. 
-    If weight=string (typically string='weight')  is given then use edge attribte string as edge lengths. If weigh=None then all edges have length 1.
+    If weight=string (typically string='weight')  is given then use edge attribte string as edge lengths. If weight=None then all edges have length 1.
 
     If one of at_vertex = v or first_edge=e then give the length of the shortest cycle that either starts at v, or has first edge e, respectively. 
 
-    If immersed=True do not allow cycles that have edge (u,v) followed by edge (v,u). If, in addition, at_vertex = v or first_edge=e, then it is possible that the shortest cycle is not simple. Eg, if e is the bar of the barbell graph then the shortest immersed cycle starting with e is of the form e + loop + e backwards + loop. 
-    If immersed=1 and at_vertex = v or first_edge=e then require loops to be immersed except possibly at the initial vertex.
+    If nobigon=True do not count cycles of only 2 edges. 
     """
     G=inputgraph.copy()
     if first_edge is not None:
@@ -1065,7 +1122,7 @@ def shortest_cycle_length(inputgraph,at_vertex=None, first_edge=None, immersed=F
         else:
             first_edge_weight=G[e[0]][e[1]][weight]
         G.remove_edge(*e)
-        if immersed:
+        if nobigon:
             reverse_edge_is_present=False
             if (e[1],e[0]) in G.edges():
                 reverse_edge_is_present=True
@@ -1079,22 +1136,17 @@ def shortest_cycle_length(inputgraph,at_vertex=None, first_edge=None, immersed=F
         except nx.NetworkXNoPath:
             shortest_e_path=float('inf')
         shortest_simple_cycle_using_e=shortest_e_path+first_edge_weight
-        shortestcycleusing_e=shortest_simple_cycle_using_e
-        if immersed and reverse_edge_is_present and (first_edge is not None or at_vertex is not None): # in this case it is possible that there is no simple cycle using e as first edge, but there may be an immersed cycle.
-            shortest_1_loop=shortest_cycle_length(G,at_vertex=e[1],immersed=1,weight=weight)
-            if immersed is True:
-                shortest_0_loop=shortest_cycle_length(G,at_vertex=e[0],immersed=1,weight=weight)
-            else:
-                shortest_0_loop=0
-            shortestcycleusing_ebar=first_edge_weight+shortest_1_loop+reverse_edge_weight+shortest_0_loop
-            shortestcycleusing_e=min(shortest_simple_cycle_using_e,shortestcycleusing_ebar)
-        if reverse_edge_is_present:
+        if nobigon and reverse_edge_is_present:
+            shortest_allowed_cycle_using_e=min(shortest_simple_cycle_using_e,4) # bigon is not allowed, but double cover of bigon is allowed.
             if weight is None:
                 G.add_edge(e[1],e[0])
             else:
                 G.add_edge(e[1],e[0],weight=reverse_edge_weight)
-        shortestcyclelength=min(shortestcyclelength,shortestcycleusing_e)
+        else:
+            shortest_allowed_cycle_using_e=shortest_simple_cycle_using_e       
+        shortestcyclelength=min(shortestcyclelength,shortest_allowed_cycle_using_e)
     return shortestcyclelength
+
 
 
    
