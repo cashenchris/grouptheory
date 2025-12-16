@@ -17,9 +17,10 @@ import subprocess
 
 # One of the checks that certify_hyperbolicity does is to use the walrus package in GAP. The GAP startup takes a while. If multiple checks are to be run it is faster to spawn GAP only once and reuse it as follows:
 # words = list of words in free group of rank r, each defining a 1=relator quotient
-# >>> gapinstance=spawngapforwalrus(r)
+# >>> gapinstance=spawngap(r)
 # >>> for word in words:
 #             certify_hyperbolicity(word, gap=gapinstance)
+# Another check is the Tauprime condition of Blufstein-Minian-Costa available using GAP package smallcancellation, which requires custom install in your copy of GAP. 
 def is_hyperbolic(relator,reportreason=False,**kwargs):
     """
     Check if one-relator group defined by input relator is hyperbolic.
@@ -41,7 +42,7 @@ def is_hyperbolic(relator,reportreason=False,**kwargs):
     (False, 'cyclically pinched')
     >>> is_hyperbolic('ababcabccabcbcbcbcabcbcbcbcbc',reportreason=True)
     (True, 'Ivanov Schupp')
-    >>> is_hyperbolic('cacbcbcbcabacbcaba',reportreason=True,no_minimization=True) # this example is small cancellation as written but not after minimzation 
+    >>> is_hyperbolic('cacbcbcbcabacbcaba',reportreason=True,no_minimization=True) # this example is small cancellation as written but not after minimization 
     (True, 'small cancellation')
     >>> is_hyperbolic('CCBBCAAbbcaa',reportreason=True)
     (True, 'walrus')
@@ -86,6 +87,35 @@ def is_hyperbolic(relator,reportreason=False,**kwargs):
         return format_return(True,'Blufstein Minian')
     if 'verbose' in kwargs and kwargs["verbose"]:
         print("Not small cancellation.")
+    # try Blufstein-Minian-Costa Tauprime'
+    if 'BMC' in kwargs and kwargs['BMC']==True:
+        if 'verbose' in kwargs and kwargs['verbose']:
+            print("Trying GAP with BMC smallcancellation.")
+        if 'gapprompt' in kwargs:
+            gapprompt=kwargs["gapprompt"]
+        else:
+            gapprompt='gap>'
+        if 'gapfreegroupname' in kwargs:
+            gapfreegroupname=kwargs["gapfreegroupname"]
+        else:
+            gapfreegroupname='f'
+        BMC_kwargs = dict(gapfreegroupname = gapfreegroupname,gapprompt= gapprompt)
+        BMC_kwargs["gap"] = kwargs.get("gap", None)
+        if "pathtogap" in kwargs:
+            BMC_kwargs["pathtogap"] = kwargs["pathtogap"]
+        try:
+            BMCresult = checkhyperbolicitywithBMC(r2.letters, **BMC_kwargs)
+            if BMCresult:
+                return format_return(True,'BMC')
+            if 'verbose' in kwargs and kwargs["verbose"]:
+                print("BMC inconclusive.")
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,pexpect.exceptions.TIMEOUT):
+            BMCresult = None
+            if 'verbose' in kwargs and kwargs['verbose']:
+                print("BMC failed.")
+        
+        
+        
     # try GAP with walrus
     if 'walrus' in kwargs and kwargs['walrus']==False:
         pass
@@ -114,7 +144,7 @@ def is_hyperbolic(relator,reportreason=False,**kwargs):
         if walrus:
             return format_return(True,'walrus')
         if 'verbose' in kwargs and kwargs["verbose"]:
-            print("walrus failed.")
+            print("walrus inconclusive.")
     # try kbmag
     if 'kb' in kwargs and kwargs['kb']==False:
         return format_return(None,None)
@@ -155,7 +185,47 @@ def is_cyclically_pinched(relator,reportwords=False,reportpowers=False):
             
 
 
+def checkhyperbolicitywithBMC(theword,gap=None,gapfreegroupname='f',gapprompt='gap>',fulloutput=False,pathtogap=None):
+    """
+    Check hyperbolicity of the one relator group with relator defined by theword using the smallcancellation package in GAP.
 
+    Input 'gap' should be a pexpect process of GAP with smallcancellation loaded, a free group defined, ready for input. If None, process will be spawned. Spawning takes time, so if this function will be run more than once is is better to spawn one gap process and reuse it for each function call. 
+    """ 
+    if gap is None:
+        gap=spawngap(max(abs(x) for x in theword),gapfreegroupname=gapfreegroupname,gapprompt=gapprompt,pathtogap=pathtogap)
+    BMC_C_string='GroupSatisfiesC('+gapfreegroupname+'/['+converttogapword(theword,gapfreegroupname)+'],3);'
+    print("sending gap: "+BMC_C_string)
+    gap.sendline(BMC_C_string)
+    gap.expect(gapprompt)
+    output=gap.before
+    if 'true' in output:
+        C=True
+    elif 'false' in output:
+        C=False
+    else:
+        raise ValueError("Did not find 'true' or 'false' in output:",output)
+    print(C)
+    if not C:
+        if fulloutput:
+            return C,'not C(3)'
+        else:
+            return False
+    BMC_tauprime_string='GroupSatisfiesTauPrime('+gapfreegroupname+'/['+converttogapword(theword,gapfreegroupname)+']);'
+    print('sending gap: '+BMC_tauprime_string)
+    gap.sendline(BMC_tauprime_string)
+    gap.expect(gapprompt)
+    output=gap.before
+    print(output)
+    if 'true' in output:
+        result=True
+    elif 'false' in output:
+        result=False
+    else:
+        raise ValueError("Did not find 'true' or 'false' in output:",output)
+    if fulloutput:
+        return result,output
+    else:
+        return result
 
 def checkhyperbolicitywithwalrus(theword,theparameter='1/100',gap=None,gapfreegroupname='f',gapprompt='gap>',fulloutput=False,pathtogap=None):
     """
@@ -164,7 +234,7 @@ def checkhyperbolicitywithwalrus(theword,theparameter='1/100',gap=None,gapfreegr
     Input 'gap' should be a pexpect process of GAP with walrus loaded, a free group defined, ready for input. If None, process will be spawned. Spawning takes time, so if this function will be run more than once is is better to spawn one gap process and reuse it for each function call. 
     """ 
     if gap is None:
-        gap=spawngapforwalrus(max(abs(x) for x in theword),gapfreegroupname=gapfreegroupname,gapprompt=gapprompt,pathtogap=pathtogap)
+        gap=spawngap(max(abs(x) for x in theword),gapfreegroupname=gapfreegroupname,gapprompt=gapprompt,pathtogap=pathtogap)
     walrusstring='IsHyperbolic(PregroupPresentationFromFp('+gapfreegroupname+',[],['+converttogapword(theword,gapfreegroupname)+']),'+theparameter+');'
     gap.sendline(walrusstring)
     gap.expect(gapprompt)
@@ -180,9 +250,9 @@ def checkhyperbolicitywithwalrus(theword,theparameter='1/100',gap=None,gapfreegr
     else:
         return result
 
-def spawngapforwalrus(rank,gapfreegroupname='f',gapprompt='gap>',pathtogap=None):
+def spawngap(rank,gapfreegroupname='f',gapprompt='gap>',pathtogap=None):
     """
-    Sapwns a GAP process, loads package walrus, and defines free group of specified rank.
+    Sapwns a GAP process, loads packages smallcancellation and walrus, and defines free group of specified rank.
     """
     # Sometimes pexpect can find gap on its own. If not, specify the full path to gap.
     if pathtogap is None:
@@ -197,6 +267,13 @@ def spawngapforwalrus(rank,gapfreegroupname='f',gapprompt='gap>',pathtogap=None)
     output=gap.before
     if not 'true' in output:
         raise ValueError("Unable to load package 'walrus' in this version of gap.")
+    gap.sendline('scloaded:=LoadPackage("smallcancellation");')
+    gap.expect(gapprompt)
+    gap.sendline('scloaded;')
+    gap.expect(gapprompt)
+    output=gap.before
+    if not 'true' in output:
+        raise ValueError("Unable to load package 'smallcancellation' in this version of gap.")
     gap.sendline(gapfreegroupname+':=FreeGroup('+str(rank)+');;')
     gap.expect(gapprompt)
     return gap

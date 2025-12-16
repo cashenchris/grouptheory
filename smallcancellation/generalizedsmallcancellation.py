@@ -196,42 +196,65 @@ def piecedict(rels,piece_up_to_automorphism=True):
     return thepiecesandwheretheycomefrom
 
 
-def segment_piece_length(rels,thesegment,thepiecedict):
+
+def segment_piece_length(rels,segment,precomputed_piecedict=None, piece_segment_weights=None):
     """
-    Return the length of a shortest decomposition of the given segment as a concatenation of pieces.
+    Among piece decompositions of the subword of the given segment, return the minimum of their weighted lengths. 
     """
-    if thesegment[3]==0:
+    if segment[3]==0:
         return 0
-    (relator_index,startvertex,direction,segmentlength)=thesegment
+    if precomputed_piecedict is None:
+        thepiecedict=piecedict(rels)
+    else:
+        thepiecedict=precomputed_piecedict
+    if piece_segment_weights is None:
+        thepsweights=lambda x:1
+    else:
+        thepsweights=piece_segment_weights
+    (relator_index,startvertex,direction,segmentlength)=segment
     relatorlength=len(rels[relator_index])
-    endvertex=(thesegment[1]+direction*segmentlength)
-    G=segment_piece_graph(rels, thesegment, thepiecedict)
+    endvertex=(segment[1]+direction*segmentlength)
+    G=segment_piece_graph(rels, segment, thepiecedict,thepsweights)
     try:
-        p=nx.shortest_path_length(G,startvertex,endvertex)
+        p=nx.shortest_path_length(G,startvertex,endvertex,weight="weight")
     except nx.NetworkXNoPath:
         p=float('inf')
     return p
 
-def segment_piece_decomposition(rels,thesegment,thepiecedict):
+def segment_piece_decomposition(rels,segment,precomputed_piecedict=None,piece_segment_weights=None):
     """
     Return a shortest decomposition of the given segment as a concatenation of pieces.
     """
-    if thesegment[3]==0:
+    if segment[3]==0:
         return []
-    (relator_index,startvertex,direction,segmentlength)=thesegment
+    if precomputed_piecedict is None:
+        thepiecedict=piecedict(rels)
+    else:
+        thepiecedict=precomputed_piecedict
+    if piece_segment_weights is None:
+        thepsweights=lambda x:1
+    else:
+        thepsweights=piece_segment_weights
+    (relator_index,startvertex,direction,segmentlength)=segment
     relatorlength=len(rels[relator_index])
-    endvertex=(thesegment[1]+direction*segmentlength)
-    G=segment_piece_graph(rels, thesegment, thepiecedict)
+    endvertex=(segment[1]+direction*segmentlength)
+    G=segment_piece_graph(rels, segment, thepiecedict, thepsweights)
     try:
         p=nx.shortest_path(G,startvertex,endvertex)
     except nx.NetworkXNoPath:
         return None
-    return [G[p[i]][p[i+1]]['label'] for i in range(len(p)-1)]
+    return [subword(rels,G[p[i]][p[i+1]]['label']) for i in range(len(p)-1)]
 
-def segment_piece_graph(rels, thesegment, thepiecedict):
+
+    
+def segment_piece_graph(rels, thesegment, thepiecedict, piece_segment_weights=None):
     """
-    Auxiliary function for segment_piece_length. Constructs a digraph whose vertices are piece-segments and there is a directed edge denotes successor. 
+    Auxiliary function for segment_piece_length, segment_piece_decomposition. Constructs a digraph whose vertices are piece-segments and there is a directed edge denotes successor. If piece_segment_weights is given it is used to weight the edges. 
     """
+    if piece_segment_weights is None:
+        thepsweights=lambda x:1
+    else:
+        thepsweights=piece_segment_weights
     (relator_index,startvertex,direction,segmentlength)=thesegment
     relatorlength=len(rels[relator_index])
     endvertex=(thesegment[1]+direction*segmentlength)
@@ -243,11 +266,11 @@ def segment_piece_graph(rels, thesegment, thepiecedict):
         wrap=False
     G=nx.DiGraph()
     G.add_nodes_from(n for n in range(startvertex,endvertex+direction,direction))
-    thisrelatorsegments=(piece for piece in piecesegments(rels,precomputed_piecedict=thepiecedict) if piece[0]==relator_index and piece[2]==direction)
+    thisrelatorsegments=(ps for ps in piecesegments(rels,precomputed_piecedict=thepiecedict) if ps[0]==relator_index and ps[2]==direction)
     this_segment_pieces=set()
-    for piece in thisrelatorsegments:
-        piecestart=piece[1]
-        piecelength=piece[3]
+    for ps in thisrelatorsegments:
+        piecestart=ps[1]
+        piecelength=ps[3]
         pieceend=piecestart+direction*piecelength
         if direction==1 and pieceend>=relatorlength:
             piecewrap=True
@@ -258,24 +281,22 @@ def segment_piece_graph(rels, thesegment, thepiecedict):
         if direction==1:
             if wrap == piecewrap:
                 if startvertex<=piecestart and pieceend<=endvertex:
-                    G.add_edge(piecestart,pieceend,label=piece)
+                    G.add_edge(piecestart,pieceend,label=ps,weight=thepsweights(ps))
             elif wrap and not piecewrap:
                 if startvertex<=piecestart:
-                    G.add_edge(piecestart,pieceend,label=piece)
+                    G.add_edge(piecestart,pieceend,label=ps,weight=thepsweights(ps))
                 elif pieceend<=endvertex-relatorlength:
-                    G.add_edge(piecestart+relatorlength,pieceend+relatorlength,label=piece)
+                    G.add_edge(piecestart+relatorlength,pieceend+relatorlength,label=ps,weight=thepsweights(ps))
         else: #direction == -1
             if wrap == piecewrap:
                 if piecestart<=startvertex and endvertex<=pieceend:
-                    G.add_edge(piecestart,pieceend,label=piece)
+                    G.add_edge(piecestart,pieceend,label=ps,weight=thepsweights(ps))
             elif wrap and not piecewrap:
                 if piecestart<=startvertex:
-                    G.add_edge(piecestart,pieceend,label=piece)
+                    G.add_edge(piecestart,pieceend,label=ps,weight=thepsweights(ps))
                 elif pieceend>=endvertex+relatorlength:
-                    G.add_edge(piecestart-relatorlength,pieceend-relatorlength,label=piece)
+                    G.add_edge(piecestart-relatorlength,pieceend-relatorlength,label=ps,weight=thepsweights(ps))
     return G
-
-
 
 def relator_piece_length(rels,relator_index,thepiecedict):
     """
@@ -399,50 +420,20 @@ def interior_corners(rels,thepiecesegments):
         for secondsegment in [secondsegment for secondsegment in successor_pieces(rels,thepiecesegments,firstsegment) if firstsegment[3]+secondsegment[3]<=relatorlength]:
             yield (reverse_segment(rels,firstsegment),secondsegment)
 
-def corner_angle_from_generator_weights(rels,corner,weights,precomputed_piecedict=None,skew=Fraction(1,2)):
+def corner_angle_from_generator_weights(rels,corner,generator_weights,precomputed_piecedict=None):
     """
     Return the interior angle of the corner expressed in turns.
     weights is tuple of integral weights of the group generators
-    skew is Fraction between 0 and 1 determinig relative weight of first and second leg of the corner
     """
-    leg0=weighted_word_length(subword(rels,corner[0]),weights)
-    leg1=weighted_word_length(subword(rels,corner[1]),weights)
+    leg0=weighted_word_length(subword(rels,corner[0]),generator_weights)
+    leg1=weighted_word_length(subword(rels,corner[1]),generator_weights)
     remainder_segment=corner_remainder_segment(rels,corner)
-    restlength=weighted_word_length(subword(rels,remainder_segment),weights)
-    return Fraction(1,2)-Fraction( skew*leg0+(1-skew)*leg1,leg0+leg1+restlength)
+    restlength=weighted_word_length(subword(rels,remainder_segment),generator_weights)
+    return Fraction(1,2)*(1-Fraction(leg0+leg1,leg0+leg1+restlength))
 
-def combinatorial_corner_angle(rels,corner,weights=None,precomputed_piecedict=None):
-    """
-    Given a corner, find the shortest piece decomposition of the relator that contains the two legs of the corner, and return the combinatorial angle of all corners of the relator with this decomposition. This gives a lower bound on the combinatorial angle of this corner when it appears on an interior face in a reduced van Kampen diagram.
-    """
-    return combinatorial_corner_angle_from_sequence(rels, [corner,],precomputed_piecedict=precomputed_piecedict)
-    
-def combinatorial_corner_angle_from_sequence(rels, cornersequence,precomputed_piecedict=None):
-    """
-    Given a sequence of consecutive corners within a single relator, think of this as a partial decomposition of the relator in to a concatenation of pieces, find the shortest extension of this partial decomposition to a full decomposition of the relator as a concataenation of pieces, and return the combinatorial angle of all corners of the relator with respect to this decompostiion. 
 
-    'Consecutive corners' means that the second leg of a given corner is equal to the reverse of the first leg of the next corner in the sequence. 
-
-    The sequence of corners is 'closed' if the last corner and the first corner are consecutive. 
-    """
-    assert(all(cornersequence[i+1][0]==reverse_segment(rels,cornersequence[i][1]) for i in range(len(cornersequence)-1))) # corners are consecutive
-    sequence_is_closed=bool(reverse_segment(rels,cornersequence[0][0])==cornersequence[-1][1])
-    if precomputed_piecedict is None:
-        thepiecedict=piecedict(rels)
-    else:
-        thepiecedict=precomputed_piecedict
-    if sequence_is_closed:
-        min_boundary_piece_length=len(cornersequence)
-        return Fraction(1,2)-Fraction(1,min_boundary_piece_length)
-    else: # sequence not closed. Find minimal decomostion of the complement. 
-        r,v,d,l=cornersequence[-1][1]
-        complement_segment=(r,(v+d*l)%len(rels[r]),d,len(rels[r])-(cornersequence[0][0][3]+sum(cornersequence[i][1][3] for i in range(len(cornersequence)))))
-        assert(complement_segment[3]>=0) # complement has nonnegative length
-        min_boundary_piece_length=len(cornersequence)+1+segment_piece_length(rels,complement_segment,thepiecedict)
-        return Fraction(1,2)-Fraction(1,min_boundary_piece_length)
-    
-        
-   
+def corner_angle_from_piece_weights_with_known_boundary(rels,corner,boundary_weight,piece_sgement_weights):
+    return Fraction(piece_segment_weights(corner[0])+piece_segment_weights(corner[1]),2*boundary_weight)
     
 
 def weighted_word_length(theword,theweights):
@@ -453,6 +444,9 @@ def weighted_word_length(theword,theweights):
     for x in theword:
         wwl+=theweights[abs(x)-1]
     return wwl
+
+def piece_segment_weights_from_piece_weights(rels,thepiecedict,thepieceweights):
+    return {ps:thepieceweights[subword(rels,ps)] for ps in piecesegments(rels,thepiecedict)}
 
 def unweighted_corner_graph(rels,somepiecesegments,piece_up_to_automorphism=True):
     """
@@ -550,14 +544,14 @@ def light_loops_with_initial_segment(G,initialsegment,maxweight=1,simple=False,u
             
 def light_loops(G,maxweight=1,simple=False):
     """
-    Generator that yields unbased loops in vertex weighted digraph G whose weight does not exceed maxweight.
+    Generator that yields unbased loops of length at least 3 in vertex weighted digraph G whose weight does not exceed maxweight.
     Loop is given as a list of vertices such that that successive vertices have a directed edge between them in the graph, and such that there is an edge in the graph from last vertex to first vertex.
     If 'simple' is True only yield loops in which no vertex is repeated.
     """
     if maxweight==float('inf') and not simple:
         raise ValueError('Must give finite maxweight or restrict to simple loops.')
     workingG=G.copy()
-    # in the corner graph we are actually interested in has a loop symmetry reveresing orientation. Normalize with chosen orientation such that the first vertex of each loop is a corner whose directions are -1,1. To achieve this sort the nodes such that vertices with v[0][2]==-1 come first, and only yield loops that start with one of those vertices.  
+    # The corner graph we are actually interested in has a loop symmetry reversing orientation. Normalize with chosen orientation such that the first vertex of each loop is a corner whose directions are -1,1. To achieve this sort the nodes such that vertices with v[0][2]==-1 come first, and only yield loops that start with one of those vertices.  
     nodes=sorted(G, key=lambda v: (v[0][2],G.nodes[v]['weight'],v))
     for i in range(len(nodes)):
         if nodes[i][0][2]==-1:
@@ -601,6 +595,7 @@ def negative_curvature_check(relator_list,angle_function,precomputed_piecedict=N
     """
     Check if every interior vertex of every reduced diagram has negative curvature.
     If verbose and False, also return the curvature of the first non-negatively curved vertex found, and the loop in the corner graph describing that vertex.
+    angle_function should be a function that takes a corner as input and outputs the angle assigned to that corner. 
     """
     if noparse:
         rels=relator_list
@@ -619,6 +614,8 @@ def negative_curvature_check(relator_list,angle_function,precomputed_piecedict=N
         if verbose:
             print("Constructing  corner graph.")
         G=unweighted_corner_graph(rels,thepiecesegments)
+        if verbose:
+            print("Corner graph has "+str(len(G))+" vertices.")
     else:
         G=precomputed_corner_graph
     if verbose:
@@ -633,13 +630,164 @@ def negative_curvature_check(relator_list,angle_function,precomputed_piecedict=N
     else:
         return True
 
-def second_small_cancellation_check(relator_list,corner_angle_function=None,weights=None,combinatorial=False,precomputed_piecedict=None,precomputed_corner_graph=None, noparse=False,verbose=False,minimum_heavy_link_weight=Fraction(1,1),maximum_light_link_weight=Fraction(2,1), skew=Fraction(1,2)):
+def piece_segment_weight_guesser(rels,precomputed_piecedict=None,initial_ps_weights=None,iterations=10,corner_adjustment_factor=Fraction(1,10),complement_adjustment_factor=Fraction(1,10),number_target_loops=2,precision=3,verbose=False):
+    if precomputed_piecedict is None:
+        thepiecedict=piecedict(rels)
+    else:
+        thepiecedict=precomputed_piecedict
+    allpiecesegments=piecesegments(rels,thepiecedict)
+    G=unweighted_corner_graph(rels,allpiecesegments)
+    if initial_ps_weights is None:
+        psweightdict={x:1 for x in allpiecesegments}
+    elif callable(initial_ps_weights):
+        psweightdict={x:initial_ps_weights(x) for x in allpiecesegments}
+    elif type(initial_ps_weights)==dict:
+        psweightdict=initial_ps_weights
+    def blind_corner_angle(corner):
+        complement=corner_remainder_segment(rels,corner)
+        assert(complement[3]>0) # presentation is C(3), no bigons 
+        return Fraction(1,2)*(1-Fraction(psweightdict[corner[0]]+psweightdict[corner[1]],psweightdict[corner[0]]+psweightdict[corner[1]]+segment_piece_length(rels,complement,thepiecedict,lambda x:psweightdict[x])))
+    CAF=blind_corner_angle
+    iteration=0
+    while iteration<=iterations-1:
+        iteration+=1
+        weight_corner_graph(rels,G,CAF,thepiecedict)
+        ll=light_loops(G,maxweight=1)
+        lightest=sorted(ll,key=lambda x:sum(G.nodes[v]['weight'] for v in x))
+        corner_segment_frequency=dict()
+        complement_segment_frequency=dict()
+        num_loops=min(len(lightest),number_target_loops)
+        if not num_loops:
+            if verbose:
+                print("No light loops.")
+            return psweightdict
+        else:
+            if verbose:
+                print('Iteration '+str(iteration)+' of '+str(iterations)+'. Lightest loops '+" ".join(f"{float(sum(G.nodes[v]['weight'] for v in lightest[i])):.3g}" for i in range(num_loops))+'.')
+        for i in range(num_loops):
+            for c in lightest[i]:
+                corner_segment_frequency[c[0]]=corner_segment_frequency.setdefault(c[0],0)+Fraction(1,num_loops)
+                corner_segment_frequency[c[1]]=corner_segment_frequency.setdefault(c[1],0)+Fraction(1,num_loops)
+                complement=corner_remainder_segment(rels,c)
+                startvertex=complement[1]
+                endvertex=complement[1]+complement[2]*complement[3]
+                spg=segment_piece_graph(rels,complement,thepiecedict)
+                paths=nx.all_simple_paths(spg,startvertex,endvertex)
+                pathcount=0
+                segcount=dict()
+                for path in paths:
+                    pathcount+=1
+                    for e in range(len(path)-1):
+                        pslabel=spg[path[e]][path[e+1]]['label']
+                        segcount[pslabel]=segcount.setdefault(pslabel,0)+1
+                for ps in segcount:
+                    complement_segment_frequency[ps]=complement_segment_frequency.setdefault(ps,0)+Fraction(segcount[ps],pathcount)*Fraction(1,num_loops)
+        newpsweightdict=dict()
+        for ps in allpiecesegments:
+            if ps not in complement_segment_frequency and ps not in corner_segment_frequency:
+                newpsweightdict[ps]=psweightdict[ps]
+            elif ps not in complement_segment_frequency:
+                newpsweightdict[ps]=psweightdict[ps]*(1-corner_adjustment_factor*Fraction(1,iteration)*min(1,corner_segment_frequency[ps]))
+            elif ps not in corner_segment_frequency:
+                newpsweightdict[ps]=psweightdict[ps]*(1+complement_adjustment_factor*Fraction(1,iteration)*min(1,complement_segment_frequency[ps]))
+            else:
+                newpsweightdict[ps]=psweightdict[ps]*(1-corner_adjustment_factor*Fraction(1,iteration)*min(1,corner_segment_frequency[ps]))*(1+complement_adjustment_factor*Fraction(1,iteration)*min(1,complement_segment_frequency[ps]))
+        for ps in allpiecesegments:
+            psweightdict[ps]=Fraction(round(newpsweightdict[ps]*10**precision),10**precision)
+        def blind_corner_angle(corner):
+            complement=corner_remainder_segment(rels,corner)
+            assert(complement[3]>0) # presentation is C(3), no bigons 
+            return Fraction(1,2)*(1-Fraction(psweightdict[corner[0]]+psweightdict[corner[1]],psweightdict[corner[0]]+psweightdict[corner[1]]+segment_piece_length(rels,complement,thepiecedict,lambda x:psweightdict[x])))
+        CAF=blind_corner_angle
+    return psweightdict
+        
+        
+
+def generator_weight_guesser(rels,precomputed_piecedict=None,initial_generator_weights=None,iterations=10,corner_adjustment_factor=Fraction(1,10),complement_adjustment_factor=Fraction(1,10),number_target_loops=2,precision=3,verbose=False):
+    if precomputed_piecedict is None:
+        thepiecedict = piecedict(rels)
+    else:
+        thepiecedict = precomputed_piecedict
+    allpiecesegments = piecesegments(rels, thepiecedict)
+    G = unweighted_corner_graph(rels, allpiecesegments)
+    maxgen = max(abs(x) for w in rels for x in w)
+    if initial_generator_weights is None:
+        generator_weights = [1 for x in range(maxgen)]
+    elif isinstance(initial_generator_weights, (list, tuple)):
+        generator_weights =  initial_generator_weights
+    else:
+        raise TypeError("initial_generator_weights must be None, list/tuple")
+    def CAF(corner):
+        return corner_angle_from_generator_weights(rels,corner,generator_weights,precomputed_piecedict=thepiecedict)
+    iteration = 0
+    while iteration <= iterations-1:
+        iteration += 1
+        weight_corner_graph(rels, G, CAF, thepiecedict)
+        ll = light_loops(G, maxweight=1)
+        lightest = sorted(ll, key=lambda loop: sum(G.nodes[v]['weight'] for v in loop))
+        num_loops = min(len(lightest), number_target_loops)
+        if not num_loops:
+            if verbose:
+                print("No light loops.")
+            return generator_weights
+        if verbose:
+            print(
+                f"Iteration {iteration} of {iterations}. Lightest loops "
+                + " ".join(
+                    f"{float(sum(G.nodes[v]['weight'] for v in lightest[i])):.3g}"
+                    for i in range(num_loops)
+                )
+                + "."
+            )
+        leg_freq = {i: Fraction(0,1) for i in range(1, maxgen+1)}
+        comp_freq = {i: Fraction(0,1) for i in range(1, maxgen+1)}
+        for i in range(num_loops):
+            loop = lightest[i]
+            for c in loop:
+                for x in subword(rels, c[0]):
+                    leg_freq[abs(x)] += Fraction(1, num_loops)
+                for x in subword(rels, c[1]):
+                    leg_freq[abs(x)] += Fraction(1, num_loops)
+                complement = corner_remainder_segment(rels, c)
+                assert(complement[3]>0)
+                frac_unit = Fraction(1, complement[3]*num_loops)
+                for x in subword(rels, complement):
+                    comp_freq[abs(x)] += frac_unit
+        new_weights = list()
+        for i in range(1, maxgen+1):
+            old = generator_weights[i-1]
+            lf_clamped = min(Fraction(1,1), leg_freq[i])
+            cf_clamped = min(Fraction(1,1), comp_freq[i])
+            if lf_clamped == 0 and cf_clamped == 0:
+                factor = 1
+            elif lf_clamped == 0:
+                factor = (1 + complement_adjustment_factor * Fraction(1, iteration) * cf_clamped)
+            elif cf_clamped == 0:
+                factor = (1 - corner_adjustment_factor * Fraction(1, iteration) * lf_clamped)
+            else:
+                factor = (1 - corner_adjustment_factor * Fraction(1, iteration) * lf_clamped) * (1 + complement_adjustment_factor * Fraction(1, iteration) * cf_clamped)
+            new_weights.append(Fraction(round(old*factor*10**precision),10**precision))
+        generator_weights = new_weights
+        def CAF(corner):
+            return corner_angle_from_generator_weights(rels,corner,generator_weights,precomputed_piecedict=thepiecedict)
+    return generator_weights
+
+
+def second_small_cancellation_check(relator_list,corner_angle_function=None,additive_piece_weight=False, generator_weights=None,piece_weights=None,piece_segment_weights=None,precomputed_piecedict=None,precomputed_corner_graph=None, noparse=False,verbose=False,minimum_heavy_link_weight=Fraction(1,1),maximum_light_link_weight=Fraction(2,1),guess_weights=False):
     """
-    Decide if van Kampen diagrams over presentation with given relator_list have the property that with the given weights on the lengths of edges corresponding to each generator, all deep vertices in the diagram have average negative curvature. If yes, return True, and the group is hyperbolic. If algorithm fails then False is returned and hyperbolicity of the group is not determined. 
+    Decide if van Kampen diagrams over C(3) presentation with given relator_list have the property that with the given weights on the lengths of edges corresponding to each generator, all deep vertices in the diagram have average negative curvature. If yes, return True, and the group is hyperbolic. If algorithm fails then False is returned and hyperbolicity of the group is not determined. 
     
-    Algorithm works by enumerating possible 2-neighborhoods of vertices in reduced van Kampen diagrams, computing cuvatures of central vertex and its neighbors, and, if central vertex is nonnegatively curved, taking donation from each of its negatively curved neighbors in the amount of curvature/degree. If the result is always negative then return True. Return false if a vertex is found that has nonnegative curvature and for which it is likely that a neighborhood can be found for which the neighboring vertices are not able to donate sufficient curvature to make the central vertex negatively curved. This can mean that either an explicit failing neighborhood has been found, or that ruling out such a neighborhood would take an excessively long time. This decision is controlled by parameters minimum_heavy_link_weight and maximum_light_link_weight. Must have 1<=minimum_heavy_link_weight<=maximum_light_link_weight. Smaller values lead to faster execution but potentially more false negative results. 
+    Algorithm works by enumerating possible 2-neighborhoods of vertices in reduced van Kampen diagrams, computing curvatures of central vertex and its neighbors, and, if central vertex is nonnegatively curved, taking donation from each of its negatively curved neighbors in the amount of curvature/degree. If the result is always negative then return True. Return false if a vertex is found that has nonnegative curvature and for which it is likely that a neighborhood can be found for which the neighboring vertices are not able to donate sufficient curvature to make the central vertex negatively curved. This can mean that either an explicit failing neighborhood has been found, or that ruling out such a neighborhood would take an excessively long time. This decision is controlled by parameters minimum_heavy_link_weight and maximum_light_link_weight. Must have 1<=minimum_heavy_link_weight<=maximum_light_link_weight. Smaller values lead to faster execution but potentially more false negative results. 
+
+    By default, relator_list is parsed and put into standard form. Use noparse=True to skip this step if the relator_list is already known to be in standard form.
+
+    If corner_angle_function is supplied, use it to measure corner angles. Otherwise:
+        If additive_piece_weight is True:
+            If generator_weights are supplied, define corner angles using weighted word length. Otherwise, define corner angles using word length.
+        Otherwise, if piece_weights are supplied, use them to define corner angles. If not, use constant piece weight 1.
+    
     """
-    # in the metric (noncombinatorial case) the corner angles can be computed initially and do not depend on the diagram. They are stored in the weighted corner graph G and only have to be looked up. In the combinatorial case, computing the angle of a corner in a diagram requires a decomposition of a face into pieces, not just  the two pieces at the corner.  In this case, the angle recorded in the corner graph is the lower bound obtained by assuming that the complement of the corner is decomposed into pieces as coarsely as possible. However, when we start enumerating links of neighboring vertices, this puts further constraints on the faces incident to the central vertex that can decrease its curvature. So the central vertex curvature can be recomputed several times in the computation.   
+    # in the additive case the corner angles can be computed initially and do not depend on the diagram. They are stored in the weighted corner graph G and only have to be looked up. In the nonadditive case, computing the angle of a corner in a diagram requires a decomposition of a face into pieces, not just  the two pieces at the corner.  In this case, the angle recorded in the corner graph is the lower bound obtained by assuming that the complement of the corner is decomposed into pieces as coarsely as possible. However, when we start enumerating links of neighboring vertices, this puts further constraints on the faces incident to the central vertex that can decrease its curvature. So the central vertex curvature must be recomputed several times in the computation.   
     if noparse:
         rels=relator_list
     else:
@@ -672,17 +820,76 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
         if verbose:
             print("Constructing corner graph.")
         G=unweighted_corner_graph(rels,thepiecesegments)
+        if verbose:
+            print("Corner graph has "+str(len(G))+" vertices.")
     else:
         G=precomputed_corner_graph
     if corner_angle_function is not None:
         CAF=corner_angle_function
-    elif combinatorial:
-        CAF=functools.partial(combinatorial_corner_angle,rels,weights=None,precomputed_piecedict=thepiecedict)
-    elif weights is not None:
-        CAF=functools.partial(corner_angle_from_generator_weights,rels,weights=weights,precomputed_piecedict=thepiecedict,skew=skew)
-    else:
-        CAF=functools.partial(corner_angle_from_generator_weights,rels,weights=[1 for i in range(max([max([abs(x) for x in rel]) for rel in rels]))], precomputed_piecedict=thepiecedict,skew=skew)
+    elif not additive_piece_weight:
+        if piece_segment_weights is not None:
+            if callable(piece_segment_weights):
+                thepsweights=piece_segment_weights
+            elif type(piece_segment_weights)==dict:
+                def thepsweights(ps):
+                    return piece_segment_weights[ps]
+            else:
+                raise TypeError("piece_segments_weights should be function or dict.")
+        else:
+            if piece_weights is None:
+                if guess_weights:
+                    if verbose:
+                        print('Guessing piece-segment weights.')
+                    psweightdict=piece_segment_weight_guesser(rels,precomputed_piecedict=thepiecedict,initial_ps_weights=None,iterations=10,corner_adjustment_factor=Fraction(1,30),complement_adjustment_factor=Fraction(1,30),number_target_loops=2,precision=2,verbose=False)
+                    thepsweights=lambda x:psweightdict[x]
+                else:
+                    thepsweights=lambda x:1
+            elif callable(piece_weights) or type(piece_weights)==dict:
+                if callable(piece_weights):
+                    _psweights={ps:piece_weights(subword(rels,ps)) for ps in piecesegments(rels,thepiecedict)}
+                else:
+                    _psweights={ps:piece_weights[subword(rels,ps)] for ps in piecesegments(rels,thepiecedict)}
+                def thepsweights(piece_segment):
+                    return _psweights[piece_segment]
+            else:
+                raise TypeError("piece_weights should be function or dict.")
+        _segment_weight_cache=dict()
+        def cached_segment_weight(segment):
+            if segment in _segment_weight_cache:
+                return _segment_weight_cache[segment]
+            theweight = segment_piece_length(rels,segment,precomputed_piecedict=thepiecedict, piece_segment_weights=thepsweights)
+            _segment_weight_cache[segment] = theweight
+            return theweight
+        def blind_corner_angle(corner):
+            complement=corner_remainder_segment(rels,corner)
+            assert(complement[3]>0) # presentation is C(3), no bigons 
+            return Fraction(1,2)*(1-Fraction(thepsweights(corner[0])+thepsweights(corner[1]),thepsweights(corner[0])+thepsweights(corner[1])+cached_segment_weight(complement)))
+        CAF=blind_corner_angle
+    else: # additive piece weights, compute corner angles once and for all as weights in corner graph
+        if generator_weights is not None:
+            CAF=functools.partial(corner_angle_from_generator_weights,rels,generator_weights=weights,precomputed_piecedict=thepiecedict)
+        elif guess_weights:
+            genweights=generator_weight_guesser(rels,precomputed_piecedict=thepiecedict,iterations=10,corner_adjustment_factor=Fraction(1,30),complement_adjustment_factor=Fraction(1,30),number_target_loops=2,precision=3,verbose=False)
+            if verbose:
+                print('Guessed generator weights: '+str(genweights))
+            CAF=functools.partial(corner_angle_from_generator_weights,rels,generator_weights=genweights,precomputed_piecedict=thepiecedict)
+        else:
+            CAF=functools.partial(corner_angle_from_generator_weights,rels,generator_weights=[1 for i in range(max([max([abs(x) for x in rel]) for rel in rels]))], precomputed_piecedict=thepiecedict)
+    if verbose:
+        print("Computing angle structure.")
     weight_corner_graph(rels,G,CAF,precomputed_piecedict=thepiecedict)
+    the_light_links=light_loops(G,maxweight=1)
+    try:
+        first_light_link=next(the_light_links)
+        LL=itertools.chain([first_light_link], the_light_links)
+    except StopIteration:
+        if verbose:
+            print("All vertices have negative curvature.")
+            return (True,)
+        else:
+            return True
+    if verbose:
+        print("Analyzing angle structure.")
     minangle=min(G.nodes[v]['weight'] for v in G)
     mindensity=min(Fraction(G.edges[e]['weight']+G.edges[f]['weight']+G.edges[g]['weight']+G.edges[h]['weight'],4) for e in G.edges() for f in G.out_edges(e[1]) for g in G.out_edges(f[1]) for h in G.out_edges(g[1])) # calculate minimum of (1/4)(path weight) over paths of length 4. This is lower bound for denisty=total weght/length of closed loops. 
     if verbose:
@@ -692,90 +899,127 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
         raise ValueError('Corner graph has loops with nonpositive weight.') # Algorithm doesn't work with nonpositive densities. This can happen for some choices of nonpositive weights. Should not happen otherwise. 
     if verbose:
         print("Searching for nonnegative curvature.")
-    for centerlink in light_loops(G,maxweight=1): # each possible centerlink describes link of vertex with nonnegative curvature
-        centerweight=sum(G.nodes[v].get('weight') for v in centerlink)
-        centercurvature=1-centerweight
+    for centerlink in LL: # each possible centerlink describes link of vertex with nonnegative curvature
+        faceangles=[G.nodes[v].get('weight') for v in centerlink]
+        centerangle=sum(faceangles)
+        centercurvature=1-centerangle
         if centercurvature>=len(centerlink)*mindensity: # can only expect asymptotically that neighbors donate -mindensity, so if this test is true then the center is too positively curved for this algorithm to cancel it out via neighbor donations.
             if verbose:
                 return False,"link"+str(centerlink)+"has curvature "+str(centerurvature)+", too small to be balanced by neighbors."
             else:
                 return False
         if verbose:
-            print("Found link of curvature +"+str(centercurvature)+". Soliciting donations.")
+            print("Found link of curvature +"+str(centercurvature)+", based on face angles "+str(faceangles)+". Soliciting donations.")
         neighbors=[]
         # neighbors is a list whose entry at index i describes the neighborhood of the vertex opposite the central vertex along the arc common to corners i and i+1 of centerlink. 
         # entry is a dict:
         #{
-        #''thisfirstlast':(first corner of the link clockwise starting from the central arc, last corner of the link),
-        #'thisfirstlastangles':(angle of first corner, angle of second corner)
-        #'firstlastgen': generator of other possible first/last corner choices,
-        #'thislightlink':vertex link whose first corner is (central arc, first outcoing arc) and whose last corner is (last outgoing arc, central arc) or None if no such light links,
-        #'lightlinkcompletionweightlimit': used to define generator of light links
+        #'firstcorner': first corner of the link clockwise starting from the central arc,
+        #'firstcornerangle': current lower bound on angle of the first corner,
+        #'lastcorner': last corner of the link clockwise starting from the central arc,
+        #'lastcornerangle': current lower bound on angle of the last corner,
+        #'firstlastgen': generator of other possible first/last corner choices, in case we backtrack and replace the current first/last corner pair
+        #'thislightlink':vertex link that starts with firstcorner, ends with lastcorner and whose weight is at most lightlinkcompletionweightlimit, or None if no such light links exist.
+        #'lightlinkcompletionweightlimit': used to define generator of light links. 
         #'lightlinkgen':generator of other possible light links for this first/last pair or None if there are no such,
         #'donation':curvature donation of this vertex, which is either min(0,(1-linkweight)/valence) if there is a light link, or a commonly computed negative upper bound that applies to all heavy links with this first/last pair].
-        #'anglecorrection': weight of first corner in cornergraph - weight in current diagram
 
-        if combinatorial:
+        if not additive_piece_weight:
+            def corner_angles_from_face_corner_sequence(thisfacecornersequence):
+                faceinnerwordlength=sum(c[0][3] for c in thisfacecornersequence)+thisfacecornersequence[-1][1][3]
+                relatorindex=thisfacecornersequence[0][0][0]
+                assert(all(relatorindex==c[0][0] and relatorindex==c[1][0] for c in thisfacecornersequence))
+                facetotalwordlength=len(rels[relatorindex])
+                if facetotalwordlength>=faceinnerwordlength:
+                    thisfaceistriangle=False
+                    if thisfacecornersequence[0][0][2]==1:
+                        complementarysegment=(relatorindex,(thisfacecornersequence[0][0][1]+thisfacecornersequence[0][0][3])%len(rels[relatorindex]),1,facetotalwordlength-faceinnerwordlength)
+                    else:
+                        complementarysegment=(relatorindex,(thisfacecornersequence[0][0][1]-thisfacecornersequence[0][0][3])%len(rels[relatorindex]),-1,facetotalwordlength-faceinnerwordlength)
+                elif len(thisfacecornersequence)==3 and thisfacecornersequence[-1][1][3]==thisfacecornersequence[0][0][3] and facetotalwordlength==sum(c[0][3] for c in thisfacecornersequence):
+                        thisfaceistriangle=True
+                else:
+                    raise RuntimeError # should not have allowed such a choice of corners
+                if thisfaceistriangle:
+                    faceboundaryweight=sum(thepsweights(c[0]) for c in thisfacecornersequence)
+                else:
+                    faceboundaryweight=sum(thepsweights(c[0]) for c in thisfacecornersequence)+thepsweights(thisfacecornersequence[-1][1])+cached_segment_weight(complementarysegment)
+                return [Fraction(1,2)*(1-Fraction(thepsweights(c[0])+thepsweights(c[1]),faceboundaryweight)) for c in thisfacecornersequence]
+                
             def recomputecurvatures(verbose=False):
-                # In the combinatorial case we need to know the piece decomposition of a face to compute the angles of its corners. We compute lower bounds on angles by taking the known pieces in the boundary of the face and taking the coarsest piece decomposition of the remainder segment. As the diagram is extended, more of the actual piece decomposition of the faces becomes determined, so the possibilites for piece decompositions are further constrained. This can lead to better lower bounds for corner angles, hence, lower curvatures. This function recomputes all the curvature bounds given the current state of the diagram. 
+                # In the non-additive case we need to know the piece decomposition of a face to compute the angles of its corners. We compute lower bounds on angles by taking the known pieces in the boundary of the face and taking the coarsest piece decomposition of the remainder segment. As the diagram is extended, more of the actual piece decomposition of the faces becomes determined, so the possibilites for piece decompositions are further constrained. This can lead to better lower bounds for corner angles, hence, lower curvatures. This function recomputes all the curvature bounds given the current state of the diagram. 
                 faceangles=[]#recomputed angles of the central corners
                 if len(neighbors)==0: # no neighbors yet, use angles from corner graph
                     return 1-sum(G.nodes[corner]['weight'] for corner in centerlink)
                 elif len(neighbors)==len(centerlink): # links for all neighbors are chosen
                     for i in range(len(centerlink)):
-                        faceangles.append(combinatorial_corner_angle_from_sequence(rels, [neighbors[i-1]['thisfirstlast'][1],centerlink[i],neighbors[i]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
-                    for i in range(len(centerlink)-1):
-                        neighbors[i]['thisfirstlastangles']=(faceangles[i],faceangles[(i+1)%len(centerlink)])
+                        thisfacecornersequence=[neighbors[i-1]['lastcorner'],centerlink[i],neighbors[i]['firstcorner']]
+                        thisfaceangles=corner_angles_from_face_corner_sequence(thisfacecornersequence)
+                        
+                        faceangles.append(thisfaceangles[1])
+                        neighbors[i-1]['lastcornerangle']=thisfaceangles[0]
+                        neighbors[i]['firstcornerangle']=thisfaceangles[2]
+                    for i in range(len(centerlink)): # recompute curvature donations
                         if 'thislightlink' in neighbors[i] and neighbors[i]['thislightlink'] is not None:
-                            neighbors[i]['donation']=min(0,Fraction(1-sum(neighbors[i]['thisfirstlastangles'])-sum(G.nodes[c]['weight'] for c in neighbors[i]['thislightlink'][1:-1]),len(neighbors[i]['thislightlink'])))
-                        else: # heavy link                                
-                            neighbors[i]['donation']=-mindensity*(1-Fraction(1,neighbors[i]['lightlinkcompletionweightlimit']+sum(neighbors[i]['thisfirstlastangles']))) # heavy link donation
-                    neighbors[-1]['thisfirstlastangles']=(faceangles[-1],faceangles[0])
-                    if 'thislightlink' in neighbors[-1] and neighbors[-1]['thislightlink'] is not None:
-                        neighbors[-1]['donation']=min(0,Fraction(1-sum(neighbors[-1]['thisfirstlastangles'])-sum(G.nodes[c]['weight'] for c in neighbors[i]['thislightlink'][1:-1]),len(neighbors[-1]['thislightlink'])))
-                    elif 'thislightlink' not in neighbors[-1]:
-                        neighbors[-1]['donation']=0
-                    else:
-                        if 'lightlinkcompletionweightlimit' not in neighbors[-1]:
-                            requireddonation=min(0,-(centercurvature+sum(neighbors[i]['donation'] for i in range(len(neighbors)-1))))
-                            mw=Fraction(mindensity,mindensity+requireddonation)
-                            neighbors[-1]['lightlinkcompletionweightlimit']=mw-faceangles[0]-faceangles[-1]
-                        neighbors[-1]['donation']=-mindensity*(1-Fraction(1,neighbors[-1]['lightlinkcompletionweightlimit']+sum(neighbors[-1]['thisfirstlastangles']))) # heavy link donation
+                            neighbors[i]['donation']=min(0,Fraction(1-neighbors[i]['firstcornerangle']-neighbors[i]['lastcornerangle']-sum(G.nodes[c]['weight'] for c in neighbors[i]['thislightlink'][1:-1]),len(neighbors[i]['thislightlink'])))
+                        elif i<len(neighbors)-1: # we have not reached the end of neighbors yet, so for this neighbor light links should have already been defined, and we have exhausted them. This is a heavy link.                                 
+                            neighbors[i]['donation']=-mindensity*(1-Fraction(1,neighbors[i]['lightlinkcompletionweightlimit']+neighbors[i]['firstcornerangle']+neighbors[i]['lastcornerangle'])) # heavy link donation
+                        else: # we have reached last neighbor, and either 'thislightlink' is undefined or None
+                            assert(i==len(neighbors)-1)
+                            if 'thislightlink' not in neighbors[-1]:
+                                 neighbors[-1]['donation']=0
+                            if 'lightlinkcompletionweightlimit' not in neighbors[-1]:
+                                requireddonation=min(0,-(centercurvature+sum(neighbors[i]['donation'] for i in range(len(neighbors)-1))))
+                                mw=Fraction(mindensity,mindensity+requireddonation)
+                                neighbors[-1]['lightlinkcompletionweightlimit']=mw-faceangles[0]-faceangles[-1]
+                                neighbors[-1]['donation']=-mindensity*(1-Fraction(1,neighbors[-1]['lightlinkcompletionweightlimit']+neighbors[-1]['firstcornerangle']+neighbors[-1]['lastcornerangle'])) # heavy link donation
                 else: # links for some, but not all, neighbors have been chosen
                     # set new face angles around center vertex
-                    # corner 0
-                    faceangles.append(combinatorial_corner_angle_from_sequence(rels, [centerlink[0],neighbors[0]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
+                    # corner 0, last neighbor not chosen yet, only use neighbor[0]
+                    thisfacecornersequence=[centerlink[0],neighbors[0]['firstcorner']]
+                    thisfaceangles=corner_angles_from_face_corner_sequence(thisfacecornersequence)
+                    faceangles.append(thisfaceangles[0])
+                    neighbors[0]['firstcornerangle']=thisfaceangles[1]
                     # remaining corners for which at least firstlast of link are chosen
                     for i in range(1,len(neighbors)):
-                        faceangles.append(combinatorial_corner_angle_from_sequence(rels, [neighbors[i-1]['thisfirstlast'][1],centerlink[i],neighbors[i]['thisfirstlast'][0]],precomputed_piecedict=precomputed_piecedict))
+                        thisfacecornersequence=[neighbors[i-1]['lastcorner'],centerlink[i],neighbors[i]['firstcorner']]
+                        thisfaceangles=corner_angles_from_face_corner_sequence(thisfacecornersequence)
+                        faceangles.append(thisfaceangles[1])
+                        neighbors[i-1]['lastcornerangle']=thisfaceangles[0]
+                        neighbors[i]['firstcornerangle']=thisfaceangles[2]
                     # first corner for which link has not been chosen, still gets some info from previous
-                    faceangles.append(combinatorial_corner_angle_from_sequence(rels, [neighbors[-1]['thisfirstlast'][1],centerlink[len(neighbors)]],precomputed_piecedict=precomputed_piecedict))
+                    thisfacecornersequence=[neighbors[-1]['lastcorner'],centerlink[len(neighbors)]]
+                    thisfaceangles=corner_angles_from_face_corner_sequence(thisfacecornersequence)
+                    faceangles.append(thisfaceangles[1])
+                    neighbors[-1]['lastcornerangle']=thisfaceangles[0]
                     # rest of the corners
                     for i in range(1+len(neighbors),len(centerlink)):
-                        faceangles.append(combinatorial_corner_angle_from_sequence(rels, [centerlink[i]],precomputed_piecedict=precomputed_piecedict))
-                    # set thisfirstlastangles and donation for neighbors whose firstlast is set
-                    for i in range(len(neighbors)-1):
-                        neighbors[i]['thisfirstlastangles']=(faceangles[i],faceangles[(i+1)%len(centerlink)])
+                        faceangles.append(G.nodes[centerlink[i]]['weight']) # this weight already stored in corner graph
+                    
+                    # set donation for neighbors whose first and last corners are set
+                    for i in range(len(neighbors)):
                         if 'thislightlink' in neighbors[i] and neighbors[i]['thislightlink'] is not None:
-                            neighbors[i]['donation']=min(0,Fraction(1-sum(neighbors[i]['thisfirstlastangles'])-sum(G.nodes[c]['weight'] for c in neighbors[i]['thislightlink'][1:-1]),len(neighbors[i]['thislightlink'])))
+                            neighbors[i]['donation']=min(0,Fraction(1-neighbors[i]['firstcornerangle']-neighbors[i]['lastcornerangle']-sum(G.nodes[c]['weight'] for c in neighbors[i]['thislightlink'][1:-1]),len(neighbors[i]['thislightlink'])))# donation is angle deficiency/valence
+                        elif i<len(neighbors)-1: # heavy link
+                            neighbors[i]['donation']=-mindensity*(1-Fraction(1,neighbors[i]['lightlinkcompletionweightlimit']+neighbors[i]['firstcornerangle']+neighbors[i]['lastcornerangle'])) # heavy link donation
+                        elif i==len(neighbors)-1 and 'thislightlink' not in neighbors[-1]: # haven't set thislightlink yet for this neighbor
+                            neighbors[-1]['donation']=0
                         else: # heavy link
-                            neighbors[i]['donation']=-mindensity*(1-Fraction(1,neighbors[i]['lightlinkcompletionweightlimit']+sum(neighbors[i]['thisfirstlastangles']))) # heavy link donation
-                    neighbors[-1]['thisfirstlastangles']=(faceangles[len(neighbors)-1],faceangles[len(neighbors)])
-                    if 'thislightlink' in neighbors[-1] and neighbors[-1]['thislightlink'] is not None:
-                        neighbors[-1]['donation']=min(0,Fraction(1-sum(neighbors[-1]['thisfirstlastangles'])-sum(G.nodes[c]['weight'] for c in neighbors[-1]['thislightlink'][1:-1]),len(neighbors[-1]['thislightlink'])))
-                    elif 'thislightlink' not in neighbors[-1]: # haven't set thislightlink yet for this neighbor
-                        neighbors[-1]['donation']=0
-                    else: # heavy link
-                        if 'lightlinkcompletionweightlimit' not in neighbors[-1]:
-                            howmanyafterthis=len(centerlink)-len(neighbors)
-                            requireddonation=min(0,-(centercurvature+sum(neighbors[i]['donation'] for i in range(len(neighbors)-1))-mindensity*howmanyafterthis)) # this is donation needed from this vertex to get to 0 if all of the remaining only donate -mindensity
-                            mw=Fraction(mindensity,mindensity+requireddonation)
-                            maxweighttocheck=max(heavyparameter,mw) # every link with weight > maxweighttocheck is guaranteed to dontate requireddontation. Proof requires separate estimates for case that length of the link is at least maxweighttocheck/mindensity or less than that.
-                            neighbors[-1]['lightlinkcompletionweightlimit']=maxweighttocheck-sum(neighbors[-1]['thisfirstlastangles'])
-                        neighbors[-1]['donation']=-mindensity*(1-Fraction(1,neighbors[-1]['lightlinkcompletionweightlimit']+sum(neighbors[-1]['thisfirstlastangles']))) # heavy link donation
+                            assert(i==len(neighbors)-1)
+                            if 'lightlinkcompletionweightlimit' not in neighbors[-1]:
+                                howmanyafterthis=len(centerlink)-len(neighbors)
+                                requireddonation=min(0,-(centercurvature+sum(neighbors[i]['donation'] for i in range(len(neighbors)-1))-mindensity*howmanyafterthis)) # this is donation needed from this vertex to get to 0 if all of the remaining only donate -mindensity
+                                mw=Fraction(mindensity,mindensity+requireddonation)
+                                maxweighttocheck=max(heavyparameter,mw) # every link with weight > maxweighttocheck is guaranteed to dontate requireddontation. Proof requires separate estimates for case that length of the link is at least maxweighttocheck/mindensity or less than that.
+                                neighbors[-1]['lightlinkcompletionweightlimit']=maxweighttocheck-neighbors[-1]['firstcornerangle']-neighbors[-1]['lastcornerangle']
+                                neighbors[-1]['donation']=-mindensity*(1-Fraction(1,neighbors[-1]['lightlinkcompletionweightlimit']+neighbors[-1]['firstcornerangle']+neighbors[-1]['lastcornerangle'])) # heavy link donation
                 centerangle=sum(faceangles)
-                return 1-centerangle
-            # end of recomputecurvature
+                newcentercurvature=1-centerangle
+                if verbose:
+                    print('recomputed center curvature',newcentercurvature,'new face angles',faceangles )
+                return newcentercurvature
+            ############### end of recomputecurvature
+            
         # Iterate through the neighbors of the centeral vertex. For each of them we make a generator that yields links of that vertex that agrees with link of central vertex and with preceding neighbor. The activeneighbor is the one we are currently working on.
         activeneighbor=0
         while activeneighbor>=0:
@@ -788,43 +1032,52 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
                         assert(firstboundarycomplementlength>0) # because p>2
                         possiblefirstcorners=((a,b) for (a,b) in G if a==firstcornerfirstleg and b[3]<=firstboundarycomplementlength)
                     else: # not the first neighbor, so cell containing the first corner of this vertex link already has 3 of its faces decided by the centerlink and the last corner of the previous neighbor
-                        firstboundarycomplementlength=len(rels[centerlink[activeneighbor][0][0]])-neighbors[activeneighbor-1]['thisfirstlast'][1][0][3]-centerlink[activeneighbor][0][3]-centerlink[activeneighbor][1][3]
+                        firstboundarycomplementlength=len(rels[centerlink[activeneighbor][0][0]])-neighbors[activeneighbor-1]['lastcorner'][0][3]-centerlink[activeneighbor][0][3]-centerlink[activeneighbor][1][3]
                         assert(firstboundarycomplementlength>0 or (firstboundarycomplementlength==0 and p==3))
                         if firstboundarycomplementlength==0: # triangular face potentially happens in a C(3) presentation
-                            possiblefirstcorners=[(firstcornerfirstleg,reverse_segment(rels,neighbors[activeneighbor-1]['thisfirstlast'][1][0])),]
+                            possiblefirstcorners=[(firstcornerfirstleg,reverse_segment(rels,neighbors[activeneighbor-1]['lastcorner'][0])),]
                         else:
                             possiblefirstcorners=((a,b) for (a,b) in G if a==firstcornerfirstleg and b[3]<=firstboundarycomplementlength)
                     if activeneighbor==len(centerlink)-1: # this is the last neighbor of the central vertex. extra care here because the last corner of this link is influenced by the first corner of the link of neighbor 0.
-                        lastboundarycomplementlength=len(rels[centerlink[0][0][0]])-centerlink[0][0][3]-centerlink[0][1][3]-neighbors[0]['thisfirstlast'][0][1][3]
+                        lastboundarycomplementlength=len(rels[centerlink[0][0][0]])-centerlink[0][0][3]-centerlink[0][1][3]-neighbors[0]['firstcorner'][1][3]
                         assert(lastboundarycomplementlength>0 or (lastboundarycomplementlength==0 and p==3))
                         if lastboundarycomplementlength==0:  # triangular face potentially happens in a C(3) presentation
-                            possiblelastcorners=[(reverse_segment(rels,neighbors[0]['thisfirstlast'][0][1]),lastcornersecondleg),]
+                            possiblelastcorners=[(reverse_segment(rels,neighbors[0]['firstcorner'][1]),lastcornersecondleg),]
                         else:
                             possiblelastcorners=((c,d) for (c,d) in G if d==lastcornersecondleg and c[3]<=lastboundarycomplementlength)
-                    else:
+                    else: # some neighbor in the middle
                         lastboundarycomplementlength=len(rels[centerlink[(activeneighbor+1)%len(centerlink)][0][0]])-centerlink[(activeneighbor+1)%len(centerlink)][0][3]-centerlink[(activeneighbor+1)%len(centerlink)][1][3]
                         possiblelastcorners=((c,d) for (c,d) in G if d==lastcornersecondleg and c[3]<=lastboundarycomplementlength)
                     firstlastgen=itertools.product(possiblefirstcorners,possiblelastcorners) 
                     thisfirstlast=next(firstlastgen) # If the presentation is C(2) there should be at least one such possibility, so should not get a StopIteration here.
-                    neighbors.append({'thisfirstlast':thisfirstlast,'firstlastgen':firstlastgen})
-                    if combinatorial:
+                    neighbors.append({'firstcorner':thisfirstlast[0],'lastcorner':thisfirstlast[1],'firstlastgen':firstlastgen})
+                    if not additive_piece_weight: # we added new neighbor corners, so recompute curvatures, and return new curvature of center vertex
                         centercurvature=recomputecurvatures()
+                        if verbose>=2:
+                            print("active neighbor "+str(activeneighbor)+". Recompute curvatures")
                         backtrack=False
-                        while centercurvature<0 and not backtrack:
+                        while centercurvature<0 and not backtrack:# center curvature came out negative, so we're happy with any diagram that agrees with this partial description. Move on; try different choices of first and last corner at activeneighbor. 
                             try:
                                 thisfirstlast=next(neighbors[activeneighbor]['firstlastgen'])
-                                neighbors[activeneighbor]['thisfirstlast']=thisfirstlast
+                                neighbors[activeneighbor]['firstcorner']=thisfirstlast[0]
+                                neighbors[activeneighbor]['lastcorner']=thisfirstlast[1]
                                 centercurvature=recomputecurvatures()
+                                if verbose>=2:
+                                    print("active neighbor "+str(activeneighbor)+". Recompute curvatures")
+                                # this also sets neighbors[activeneighbor]['firstcornerangle'] and neighbors[activeneighbor]['lastcornerangle']
                             except StopIteration:
                                 backtrack=True
                         if backtrack:
                             neighbors=neighbors[:activeneighbor]
                             activeneighbor-=1
+                            if verbose>=2:
+                                print('backtrack to activeneighbor '+str(activeneighbor))
                             continue
-                    else:
-                        neighbors[activeneighbor]['thisfirstlastangles']=(G.nodes[neighbors[activeneighbor]['thisfirstlast'][0]]['weight'],G.nodes[neighbors[activeneighbor]['thisfirstlast'][1]]['weight'])
-                # find link completions of thisfirstlast
-                thisfirstlast=neighbors[activeneighbor]['thisfirstlast']
+                    else: # in the additive case adding neighbor corners does not change computation of centercurvature
+                        neighbors[activeneighbor]['firstcornerangle']=G.nodes[neighbors[activeneighbor]['firstcorner']]['weight']
+                        neighbors[activeneighbor]['lastcornerangle']=G.nodes[neighbors[activeneighbor]['lastcorner']]['weight']
+
+                # find link completions of this neighbor
                 howmanyafterthis=len(centerlink)-activeneighbor-1
                 requireddonation=min(0,-(centercurvature+sum(neighbors[i]['donation'] for i in range(activeneighbor))-mindensity*howmanyafterthis)) # this is donation needed from this vertex to get to 0 if all of the remaining only donate -mindensity
                 if mindensity<-requireddonation:
@@ -842,11 +1095,11 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
                     else:
                         return False
                         
-                neighbors[activeneighbor]['lightlinkcompletionweightlimit']=maxweighttocheck-sum(neighbors[activeneighbor]['thisfirstlastangles'])
-                possiblelightlinks=restricted_light_loops(G,possiblefirstcornerleg1=set([thisfirstlast[0][0],]),possiblefirstcornerleg2=set([thisfirstlast[0][1],]),possiblelastcornerleg1=set([thisfirstlast[1][0],]),possiblelastcornerleg2=set([thisfirstlast[1][1],]),maxweight=neighbors[activeneighbor]['lightlinkcompletionweightlimit']+G.nodes[neighbors[activeneighbor]['thisfirstlast'][0]]['weight']+G.nodes[neighbors[activeneighbor]['thisfirstlast'][1]]['weight']) # this generates links starting with first and ending with last whose total weight is at most maxweighttocheck. All other potential link completions are 'heavy', and we have already given upper bound for their donation. 
+                neighbors[activeneighbor]['lightlinkcompletionweightlimit']=maxweighttocheck-neighbors[activeneighbor]['firstcornerangle']-neighbors[activeneighbor]['lastcornerangle']
+                possiblelightlinks=restricted_light_loops(G,possiblefirstcornerleg1=set([neighbors[activeneighbor]['firstcorner'][0],]),possiblefirstcornerleg2=set([neighbors[activeneighbor]['firstcorner'][1],]),possiblelastcornerleg1=set([neighbors[activeneighbor]['lastcorner'][0],]),possiblelastcornerleg2=set([neighbors[activeneighbor]['lastcorner'][1],]),maxweight=neighbors[activeneighbor]['lightlinkcompletionweightlimit']+G.nodes[neighbors[activeneighbor]['firstcorner']]['weight']+G.nodes[neighbors[activeneighbor]['lastcorner']]['weight']) # this generates links starting with first and ending with last whose total weight is at most maxweighttocheck. All other potential link completions are 'heavy', and we have already given upper bound for their donation. 
                 try:
                     thislightlink=next(possiblelightlinks)
-                    thislightlinkcurvature=1-sum(G.nodes[v]['weight'] for v in thislightlink[1:-1])-sum(neighbors[activeneighbor]['thisfirstlastangles'])
+                    thislightlinkcurvature=1-sum(G.nodes[v]['weight'] for v in thislightlink[1:-1])-neighbors[activeneighbor]['firstcornerangle']-neighbors[activeneighbor]['lastcornerangle']
                     thislightlinkdonation=min(0,Fraction(thislightlinkcurvature,len(thislightlink)))
                     neighbors[activeneighbor]['thislightlink']=thislightlink
                     neighbors[activeneighbor]['lightlinkgen']=possiblelightlinks
@@ -865,9 +1118,11 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
                 except StopIteration: # no way to complete to light link
                     neighbors[activeneighbor]['thislightlink']=None
                     neighbors[activeneighbor]['lightlinkgen']=None
-                    neighbors[activeneighbor]['donation']=-mindensity*(1-Fraction(1,neighbors[activeneighbor]['lightlinkcompletionweightlimit']+sum(neighbors[activeneighbor]['thisfirstlastangles']))) # heavy link donation
-                    if combinatorial:
+                    neighbors[activeneighbor]['donation']=-mindensity*(1-Fraction(1,neighbors[activeneighbor]['lightlinkcompletionweightlimit']+neighbors[activeneighbor]['firstcornerangle']+neighbors[activeneighbor]['lastcornerangle'])) # heavy link donation
+                    if not additive_piece_weight:
                         centercurvature=recomputecurvatures()
+                        if verbose>=2:
+                            print("active neighbor "+str(activeneighbor)+". Recompute curvatures")
                     newcentercurvature=centercurvature+sum(neighbors[i]['donation'] for i in range(activeneighbor+1))
                     usedaheavylink=True
                     if activeneighbor==len(centerlink)-1: # found links for all neighbors
@@ -880,7 +1135,7 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
                 if neighbors[activeneighbor]['thislightlink'] is not None: # current completion with a light link, try for another
                     try:
                         thislightlink=next(neighbors[activeneighbor]['lightlinkgen'])
-                        thislightlinkcurvature=1-sum(G.nodes[v]['weight'] for v in thislightlink[1:-1])-sum(neighbors[activeneighbor]['thisfirstlastangles'])
+                        thislightlinkcurvature=1-sum(G.nodes[v]['weight'] for v in thislightlink[1:-1])-neighbors[activeneighbor]['firstcornerangle']-neighbors[activeneighbor]['lastcornerangle']
                         thislightlinkdonation=min(0,Fraction(thislightlinkcurvature,len(thislightlink)))
                         neighbors[activeneighbor]['thislightlink']=thislightlink
                         neighbors[activeneighbor]['donation']=thislightlinkdonation
@@ -898,7 +1153,7 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
                     except StopIteration: # no way to complete to light link, use a heavy one
                         neighbors[activeneighbor]['thislightlink']=None
                         neighbors[activeneighbor]['lightlinkgen']=None
-                        neighbors[activeneighbor]['donation']=-mindensity*(1-Fraction(1,neighbors[activeneighbor]['lightlinkcompletionweightlimit']+sum(neighbors[activeneighbor]['thisfirstlastangles']))) # heavy link donation
+                        neighbors[activeneighbor]['donation']=-mindensity*(1-Fraction(1,neighbors[activeneighbor]['lightlinkcompletionweightlimit']+neighbors[activeneighbor]['firstcornerangle']++neighbors[activeneighbor]['lastcornerangle'])) # heavy link donation
                         newcentercurvature=centercurvature+sum(neighbors[i]['donation'] for i in range(activeneighbor+1))
                         usedaheavylink=True
                         if activeneighbor==len(centerlink)-1: # found links for all neighbors
@@ -913,25 +1168,36 @@ def second_small_cancellation_check(relator_list,corner_angle_function=None,weig
                         foundnext=True
                     except StopIteration:
                         activeneighbor-=1 # no more choices of firstlast at this neighbor. Since we didn't find any fail states, backtrack and loop. Since len(neighbors[activeneighbor])==5 we will take second branch and inrement the link completion, or, if activeneighbor==-1 we will be done
+                        if verbose>=2:
+                            print("backtrack to activeneighbor "+str(activeneighbor))
                     if foundnext:
-                        neighbors[activeneighbor]['thisfirstlast']=thisfirstlast
-                        neighbors[activeneighbor]={k:neighbors[activeneighbor][k] for k in {'firstlastgen', 'thisfirstlast'}}
-                        if combinatorial: # in this case the new choice of firstlast can change the angles defined for center and revious neighbor. recompute
+                        neighbors[activeneighbor]['firstcorner']=thisfirstlast[0]
+                        neighbors[activeneighbor]['lastcorner']=thisfirstlast[1]
+                        neighbors[activeneighbor]={k:neighbors[activeneighbor][k] for k in {'firstlastgen', 'firstcorner','lastcorner'}}
+                        if not additive_piece_weight: # in this case the new choice of firstlast can change the angles defined for center and previous neighbor. recompute
                             centercurvature=recomputecurvatures()
+                            if verbose>=2:
+                                print("active neighbor "+str(activeneighbor)+". Recompute curvatures")
                             backtrack=False
                             while centercurvature<0 and not backtrack:
                                 try:
                                     thisfirstlast=next(neighbors[activeneighbor]['firstlastgen'])
-                                    neighbors[activeneighbor]['thisfirstlast']=thisfirstlast
+                                    neighbors[activeneighbor]['firstcorner']=thisfirstlast[0]
+                                    neighbors[activeneighbor]['lastcorner']=thisfirstlast[1]
                                     centercurvature=recomputecurvatures()
+                                    if verbose>=2:
+                                        print("active neighbor "+str(activeneighbor)+". Recompute curvatures")
                                 except StopIteration:
                                     backtrack=True
                             if backtrack:
                                 neighbors=neighbors[:activeneighbor]
                                 activeneighbor-=1
+                                if verbose>=2:
+                                    print("backtrack to activeneighbor "+str(activeneighbor))
                                 continue
                         else:
-                            neighbors[activeneighbor]['thisfirstlastangles']=(G.nodes[neighbors[activeneighbor]['thisfirstlast'][0]]['weight'],G.nodes[neighbors[activeneighbor]['thisfirstlast'][1]]['weight'])                    
+                            neighbors[activeneighbor]['firstcornerangle']=G.nodes[neighbors[activeneighbor]['firstcorner']]['weight']
+                            neighbors[activeneighbor]['lastcornerangle']=G.nodes[neighbors[activeneighbor]['lastcorner']]['weight']                    
         assert(activeneighbor==-1)
         # We have now exited the main loop.
         # This is because we have explored all diagram neighborhoods without finding a fail state in which the algorithm does not succeed in giving the central vertex negative curvature.
